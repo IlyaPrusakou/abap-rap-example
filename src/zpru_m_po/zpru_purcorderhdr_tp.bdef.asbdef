@@ -1,0 +1,116 @@
+managed with additional save and cleanup with full data
+implementation in class zbp_pru_purcorderhdr_tp unique;
+strict ( 2 );
+extensible
+{
+  with validations on save;
+  with determinations on save;
+  with determinations on modify;
+  with additional save;
+}
+
+with draft;
+
+define behavior for Zpru_PurcOrderHdr_tp alias OrderTP
+persistent table zpru_purc_order
+draft table zpru_po_draft
+lock master unmanaged
+total etag lastChanged
+authorization master ( instance )
+etag master lastChanged
+extensible
+late numbering
+//changedocuments master (
+{
+
+  field ( readonly : update ) purchaseOrderId;
+  field ( mandatory ) supplierId, deliveryDate;
+  field ( readonly ) status, buyerId, buyerName;
+
+  create;
+  update;
+  delete;
+  association _items_tp { create; with draft; }
+
+  draft action Discard with additional implementation;
+  draft action Activate with additional implementation optimized;
+  draft action Resume with additional implementation;
+  draft action Edit with additional implementation;
+  draft determine action Prepare extensible
+  {
+    validation ( always ) checkStatusSchema;
+  }
+
+  determine action checkaseOrder
+  {
+    validation ( always ) checkStatusSchema;
+  }
+
+  action ChangeStatus;
+  factory action Copy [1];
+  validation checkStatusSchema on save { create; update; }
+  determination defineBuyer on save { create; }
+  determination calculateTotalAmount on modify { create; update; }
+
+  mapping for zpru_purc_order corresponding extensible
+    {
+      purchaseOrderId  = purchase_order_id;
+      orderDate        = order_date;
+      supplierId       = supplier_id;
+      supplierName     = supplier_name;
+      buyerId          = buyer_id;
+      buyerName        = buyer_name;
+      totalAmount      = total_amount;
+      headerCurrency   = header_currency;
+      deliveryDate     = delivery_date;
+      status           = status;
+      paymentTerms     = payment_terms;
+      shippingMethod   = shipping_method;
+      controlTimestamp = control_timestamp;
+      createdBy        = created_by;
+      createOn         = create_on;
+      changedBy        = changed_by;
+      changedOn        = changed_on;
+      lastChanged      = last_changed;
+    }
+}
+
+define behavior for Zpru_PurcOrderItem_tp alias ItemTP
+persistent table zpru_po_item
+draft table zpru_poitm_draft
+lock dependent by _header_tp
+authorization dependent by _header_tp
+etag dependent by _header_tp
+late numbering
+extensible
+{
+
+  field ( readonly ) totalPrice;
+  field ( readonly : update ) purchaseOrderId, itemId, productId;
+  field ( mandatory : create ) productId;
+  update;
+  delete;
+
+  association _header_tp { with draft; }
+
+  determination calculateTotalPrice on modify { field quantity, unitPrice; }
+
+  mapping for zpru_po_item corresponding extensible
+    {
+      itemId            = item_id;
+      purchaseOrderId   = purchase_order_id;
+      itemNumber        = item_number;
+      productId         = product_id;
+      productName       = product_name;
+      quantity          = quantity;
+      unitPrice         = unit_price;
+      totalPrice        = total_price;
+      deliveryDate      = delivery_date;
+      warehouseLocation = warehouse_location;
+      itemCurrency      = item_currency;
+      createdBy         = created_by;
+      createOn          = create_on;
+      changedBy         = changed_by;
+      changedOn         = changed_on;
+    }
+}
