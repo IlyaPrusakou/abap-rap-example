@@ -26,10 +26,11 @@ changedocuments master ( ZPRU_PURC_ORDER )
   field ( readonly : update ) purchaseOrderId;
   field ( mandatory ) supplierId, deliveryDate;
   field ( readonly ) status, buyerId, buyerName;
+  field ( features : instance ) paymentTerms;
 
-  create;
-  update;
-  delete;
+  create ( precheck );
+  update ( precheck );
+  delete ( precheck );
   association _items_tp { create; with draft; }
 
   draft action Discard with additional implementation;
