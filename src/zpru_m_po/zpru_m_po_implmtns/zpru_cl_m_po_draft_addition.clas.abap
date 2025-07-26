@@ -1,0 +1,14 @@
+CLASS zpru_cl_m_po_draft_addition DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+ENDCLASS.
+
+
+
+CLASS zpru_cl_m_po_draft_addition IMPLEMENTATION.
+ENDCLASS.

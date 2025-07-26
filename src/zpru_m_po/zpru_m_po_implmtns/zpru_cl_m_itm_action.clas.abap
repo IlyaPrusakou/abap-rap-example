@@ -1,0 +1,19 @@
+CLASS zpru_cl_m_itm_action DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+  methods markAsUrgent.
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+ENDCLASS.
+
+
+
+CLASS zpru_cl_m_itm_action IMPLEMENTATION.
+  METHOD markasurgent.
+
+  ENDMETHOD.
+
+ENDCLASS.

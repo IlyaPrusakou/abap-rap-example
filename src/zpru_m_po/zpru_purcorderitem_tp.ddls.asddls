@@ -24,6 +24,7 @@ define view entity Zpru_PurcOrderItem_tp
       deliveryDate,
       warehouseLocation,
       itemCurrency,
+      isUrgent,
       @Semantics.user.createdBy: true
       createdBy,
       @Semantics.systemDateTime.createdAt: true

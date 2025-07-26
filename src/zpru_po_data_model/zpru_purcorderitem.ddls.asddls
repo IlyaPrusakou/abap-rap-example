@@ -24,6 +24,7 @@ define view entity Zpru_PurcOrderItem
       delivery_date      as deliveryDate,
       warehouse_location as warehouseLocation,
       item_currency      as itemCurrency,
+      is_urgent          as isUrgent,
       created_by        as createdBy,
       create_on         as createOn,
       changed_by        as changedBy,

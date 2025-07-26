@@ -16,11 +16,11 @@ persistent table zpru_purc_order
 draft table zpru_po_draft
 lock master unmanaged
 total etag lastChanged
-authorization master ( instance )
+authorization master ( global, instance )
 etag master lastChanged
 extensible
 late numbering
-//changedocuments master (
+changedocuments master ( ZPRU_PURC_ORDER )
 {
 
   field ( readonly : update ) purchaseOrderId;
@@ -38,19 +38,32 @@ late numbering
   draft action Edit with additional implementation;
   draft determine action Prepare extensible
   {
-    validation ( always ) checkStatusSchema;
+    determination ( always ) setControlTimestamp;
+    validation ( always ) checkDates;
+    determination ( always ) ItemTP~findWarehouseLocation;
+    validation ( always ) ItemTP~checkQuantity;
   }
 
-  determine action checkaseOrder
+  determine action checkOrder
   {
-    validation ( always ) checkStatusSchema;
+    determination ( always ) setControlTimestamp;
+    validation ( always ) checkDates;
+    determination ( always ) ItemTP~findWarehouseLocation;
+    validation ( always ) ItemTP~checkQuantity;
   }
 
-  action ChangeStatus;
-  factory action Copy [1];
-  validation checkStatusSchema on save { create; update; }
-  determination defineBuyer on save { create; }
-  determination calculateTotalAmount on modify { create; update; }
+  internal action revalidatePricingRules result [0..1] Zpru_D_Total_Amount;
+  static action sendOrderStatisticToAzure parameter Zpru_D_Azure_Location;
+  action ChangeStatus parameter Zpru_D_New_Status;
+  factory action createFromTemplate parameter Zpru_D_Order_Template [1];
+
+  internal function isSupplierBlacklisted result [0..1] Zpru_D_SupplierInBlackList;
+  static function getApprovedSupplierList result [0..*] Zpru_D_ApprovedSupplier;
+  function getStatusHistory result [0..*] Zpru_D_StatusHistoryRecord;
+
+  validation checkDates on save { create; field orderDate, deliveryDate; }
+  determination recalculateShippingMethod on modify { field shippingMethod; }
+  determination setControlTimestamp on save { create; update; }
 
   mapping for zpru_purc_order corresponding extensible
     {
@@ -83,6 +96,7 @@ authorization dependent by _header_tp
 etag dependent by _header_tp
 late numbering
 extensible
+changedocuments dependent by _header_tp
 {
 
   field ( readonly ) totalPrice;
@@ -93,7 +107,12 @@ extensible
 
   association _header_tp { with draft; }
 
+  action markAsUrgent;
+  function getInventoryStatus result [1] Zpru_D_InventoryStatus;
+
   determination calculateTotalPrice on modify { field quantity, unitPrice; }
+  determination findWarehouseLocation on save { create; update; }
+  validation checkQuantity on save { create; update; }
 
   mapping for zpru_po_item corresponding extensible
     {

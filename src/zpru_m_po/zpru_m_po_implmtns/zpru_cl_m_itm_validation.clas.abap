@@ -1,0 +1,21 @@
+CLASS zpru_cl_m_itm_validation DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+
+  METHODS checkQuantity.
+
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+ENDCLASS.
+
+
+
+CLASS zpru_cl_m_itm_validation IMPLEMENTATION.
+  METHOD checkquantity.
+
+  ENDMETHOD.
+
+ENDCLASS.
