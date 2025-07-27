@@ -63,7 +63,7 @@ changedocuments master ( ZPRU_PURC_ORDER )
   function getStatusHistory result [0..*] Zpru_D_StatusHistoryRecord;
 
   validation checkDates on save { create; field orderDate, deliveryDate; }
-  determination recalculateShippingMethod on modify { field shippingMethod; }
+  determination recalculateShippingMethod on modify { field supplierId; }
   determination setControlTimestamp on save { create; update; }
 
   mapping for zpru_purc_order corresponding extensible
