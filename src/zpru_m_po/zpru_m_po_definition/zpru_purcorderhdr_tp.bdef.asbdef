@@ -60,7 +60,7 @@ changedocuments master ( ZPRU_PURC_ORDER )
 
   internal function isSupplierBlacklisted result [0..1] Zpru_D_SupplierInBlackList;
   static function getApprovedSupplierList result [0..*] Zpru_D_ApprovedSupplier;
-  function getStatusHistory result [0..*] Zpru_D_StatusHistoryRecord;
+  function getStatusHistory deep result [0..*] ZPRU_D_HistoryRoot;
 
   validation checkDates on save { create; field orderDate, deliveryDate; }
   determination recalculateShippingMethod on modify { field supplierId; }

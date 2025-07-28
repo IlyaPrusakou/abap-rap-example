@@ -24,7 +24,7 @@ INTERFACE lif_business_object.
   TYPES tt_setcontroltimestamp         TYPE TABLE FOR DETERMINATION zpru_purcorderhdr_tp\\ordertp~setcontroltimestamp.
   TYPES tt_checkdates                  TYPE TABLE FOR VALIDATION zpru_purcorderhdr_tp\\ordertp~checkdates.
   TYPES tt_prch_ordertp                TYPE TABLE FOR CREATE zpru_purcorderhdr_tp\\ordertp.
-  TYPES: tt_order_update TYPE TABLE FOR UPDATE Zpru_PurcOrderHdr_tp\\OrderTP.
+  TYPES tt_order_update                TYPE TABLE FOR UPDATE Zpru_PurcOrderHdr_tp\\OrderTP.
 
   CONSTANTS: BEGIN OF cs_state_area,
                BEGIN OF order,
@@ -37,34 +37,6 @@ INTERFACE lif_business_object.
 
 ENDINTERFACE.
 
-CLASS lcl_utility_functions DEFINITION CREATE PRIVATE FINAL.
-  PUBLIC SECTION.
-  PROTECTED SECTION.
-  PRIVATE SECTION.
-    CLASS-METHODS get_preferred_ship_method
-      IMPORTING
-        iv_supplier_id      TYPE char10
-      RETURNING
-        VALUE(rv_ship_meth) TYPE char20.
-ENDCLASS.
-
-CLASS lcl_utility_functions IMPLEMENTATION.
-  METHOD get_preferred_ship_method.
-    CASE iv_supplier_id.
-      WHEN 'SUP1'.
-        rv_ship_meth = zpru_if_m_po=>cs_shipping_method-air.
-      WHEN 'SUP2'.
-        rv_ship_meth = zpru_if_m_po=>cs_shipping_method-rail.
-      WHEN 'SUP3'.
-        rv_ship_meth = zpru_if_m_po=>cs_shipping_method-road.
-      WHEN 'SUP4'.
-        rv_ship_meth = zpru_if_m_po=>cs_shipping_method-sea.
-      WHEN OTHERS.
-        rv_ship_meth = zpru_if_m_po=>cs_shipping_method-air.
-    ENDCASE.
-  ENDMETHOD.
-
-ENDCLASS.
 
 CLASS lhc_OrderTP DEFINITION INHERITING FROM cl_abap_behavior_handler.
   PRIVATE SECTION.
@@ -254,6 +226,48 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD getStatusHistory.
+    IF keys IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '001'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF zpru_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP
+         ALL FIELDS WITH CORRESPONDING #( keys )
+         RESULT DATA(lt_roots).
+
+    IF lt_roots IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING <lo_reported>.
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '002'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_key>).
+
+      ASSIGN lt_roots[ KEY id COMPONENTS %tky = <ls_key>-%tky ] TO FIELD-SYMBOL(<ls_instance>).
+      IF sy-subrc <> 0.
+        APPEND INITIAL LINE TO failed-ordertp ASSIGNING FIELD-SYMBOL(<ls_failed>).
+        <ls_failed>-%tky = <ls_instance>-%tky.
+        <ls_failed>-%fail-cause = if_abap_behv=>cause-not_found.
+        CONTINUE.
+      ENDIF.
+
+      APPEND INITIAL LINE TO result ASSIGNING FIELD-SYMBOL(<ls_resutl>).
+
+*      zpru_cl_utility_function=>fetch_history(
+*        EXPORTING
+*          is_instance = <ls_instance>
+*        RECEIVING
+*          rt_history  = <ls_resutl>
+*      ).
+
+    ENDLOOP.
   ENDMETHOD.
 
   METHOD isSupplierBlacklisted.
@@ -284,11 +298,52 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD recalculateShippingMethod.
+    DATA lt_order_update TYPE lif_business_object=>tt_order_update.
+
+    IF keys IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '001'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF zpru_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP
+         ALL FIELDS WITH CORRESPONDING #( keys )
+         RESULT DATA(lt_roots).
+
+    IF lt_roots IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING <lo_reported>.
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '002'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    LOOP AT lt_roots ASSIGNING FIELD-SYMBOL(<ls_instance>).
+
+      APPEND INITIAL LINE TO lt_order_update ASSIGNING FIELD-SYMBOL(<ls_order_update>).
+      <ls_order_update>-%tky = <ls_instance>-%tky.
+      <ls_order_update>-%data-shippingMethod = zpru_cl_utility_function=>get_preferred_ship_method(
+                                                   <ls_instance>-supplierId ).
+      <ls_order_update>-%control-shippingMethod = if_abap_behv=>mk-on.
+
+    ENDLOOP.
+
+    IF lt_order_update IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    MODIFY ENTITIES OF Zpru_PurcOrderHdr_tp
+           IN LOCAL MODE
+           ENTITY OrderTP
+           UPDATE FROM lt_order_update.
   ENDMETHOD.
 
   METHOD setControlTimestamp.
-
-    DATA: lt_order_update TYPE lif_business_object=>tt_order_update.
+    DATA lt_order_update TYPE lif_business_object=>tt_order_update.
 
     IF keys IS INITIAL.
       APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
@@ -328,10 +383,9 @@ CLASS lhc_OrderTP IMPLEMENTATION.
     ENDIF.
 
     MODIFY ENTITIES OF Zpru_PurcOrderHdr_tp
-    IN LOCAL MODE
-    ENTITY OrderTP
-    UPDATE FROM lt_order_update.
-
+           IN LOCAL MODE
+           ENTITY OrderTP
+           UPDATE FROM lt_order_update.
   ENDMETHOD.
 
   METHOD checkDates.
@@ -512,7 +566,6 @@ CLASS lhc_ItemTP IMPLEMENTATION.
 
   METHOD get_global_authorizations.
   ENDMETHOD.
-
 ENDCLASS.
 
 

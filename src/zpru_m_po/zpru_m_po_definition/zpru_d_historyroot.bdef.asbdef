@@ -1,0 +1,13 @@
+abstract;
+strict ( 2 );
+with hierarchy;
+
+define behavior for ZPRU_D_HistoryRoot alias History
+{
+  association records;
+}
+
+define behavior for Zpru_D_StatusHistoryRecord alias Record
+{
+  association header;
+}
