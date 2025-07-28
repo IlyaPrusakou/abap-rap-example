@@ -8,8 +8,12 @@ CLASS zpru_cl_utility_function DEFINITION
       RETURNING VALUE(rv_ship_meth) TYPE char20.
 
     CLASS-METHODS fetch_history
-      IMPORTING is_instance       TYPE zpru_if_m_po=>tt_order_read_res
-      RETURNING VALUE(rt_history) TYPE zpru_if_m_po=>tt_getstatushistory_res.
+      IMPORTING is_instance       TYPE zpru_if_m_po=>ts_order_read_res
+      RETURNING VALUE(rs_history) TYPE zpru_if_m_po=>ts_getstatushistory_res.
+
+    CLASS-METHODS get_major_supplier
+      RETURNING VALUE(rs_major_supplier) TYPE zpru_if_m_po=>ts_approved_suppliers.
+
 ENDCLASS.
 
 
@@ -30,9 +34,36 @@ CLASS zpru_cl_utility_function IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD fetch_history.
-    " TODO: variable is assigned but never used (ABAP cleaner)
     CONVERT DATE is_instance-orderDate TIME sy-timlo INTO TIME STAMP DATA(lv_start) TIME ZONE 'CET'.
-    " TODO: variable is assigned but never used (ABAP cleaner)
     CONVERT DATE is_instance-DeliveryDate TIME sy-timlo INTO TIME STAMP DATA(lv_end) TIME ZONE 'CET'.
+
+    rs_history = VALUE #( %tky   = is_instance-%tky
+                          %param = VALUE #( purchaseOrderId = is_instance-purchaseOrderId
+                                            pid             = is_instance-%pid
+                                            records         = VALUE #( ( startTimestamp = lv_start
+                                                                         endTimestamp   = lv_end ) ) ) ).
+    TRY.
+        DATA(lv_start2) = cl_abap_tstmp=>subtractsecs( tstmp = lv_start
+                                                       secs  = 86000  ).
+      CATCH cx_parameter_invalid_range
+            cx_parameter_invalid_type.
+        RETURN.
+    ENDTRY.
+
+    TRY.
+        DATA(lv_end2) = cl_abap_tstmp=>subtractsecs( tstmp = lv_end
+                                                     secs  = 86000  ).
+      CATCH cx_parameter_invalid_range
+            cx_parameter_invalid_type.
+        RETURN.
+    ENDTRY.
+
+    APPEND INITIAL LINE TO rs_history-%param-records ASSIGNING FIELD-SYMBOL(<ls_record>).
+    <ls_record>-startTimestamp = lv_start2.
+    <ls_record>-endTimestamp   = lv_end2.
+  ENDMETHOD.
+
+  METHOD get_major_supplier.
+    rs_major_supplier = VALUE #( supplierId = 'SUP1' SupplierName = 'Supplier1'  ).
   ENDMETHOD.
 ENDCLASS.

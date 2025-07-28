@@ -44,6 +44,12 @@
      <MSGNR>005</MSGNR>
      <TEXT>Order date must be before Delivery date for &amp;1</TEXT>
     </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZPRU_PO</ARBGB>
+     <MSGNR>006</MSGNR>
+     <TEXT>Supplier blocked for &amp;1</TEXT>
+    </T100>
    </T100>
   </asx:values>
  </asx:abap>

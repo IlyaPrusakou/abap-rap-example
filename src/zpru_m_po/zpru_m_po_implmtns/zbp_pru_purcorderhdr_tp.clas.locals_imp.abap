@@ -4,8 +4,8 @@ INTERFACE lif_business_object.
   TYPES ts_early_reported              TYPE RESPONSE FOR REPORTED EARLY zpru_purcorderhdr_tp.
   TYPES tt_po_key                      TYPE TABLE FOR KEY OF zpru_purcorderhdr_tp\\ordertp.
   TYPES ts_early_failed                TYPE RESPONSE FOR FAILED EARLY zpru_purcorderhdr_tp.
-  TYPES tt_imp_getapprovedsupplierlist TYPE TABLE FOR FUNCTION IMPORT zpru_purcorderhdr_tp\\ordertp~getapprovedsupplierlist.
-  TYPES tt_res_getapprovedsupplierlist TYPE TABLE FOR FUNCTION RESULT zpru_purcorderhdr_tp\\ordertp~getapprovedsupplierlist.
+  TYPES tt_imp_getapprovedsupplierlist TYPE TABLE FOR FUNCTION IMPORT zpru_purcorderhdr_tp\\ordertp~getMajorSupplier.
+  TYPES tt_res_getapprovedsupplierlist TYPE TABLE FOR FUNCTION RESULT zpru_purcorderhdr_tp\\ordertp~getMajorSupplier.
   TYPES tt_imp_getstatushistory        TYPE TABLE FOR FUNCTION IMPORT zpru_purcorderhdr_tp\\ordertp~getstatushistory.
   TYPES tt_res_getstatushistory        TYPE TABLE FOR FUNCTION RESULT zpru_purcorderhdr_tp\\ordertp~getstatushistory.
   TYPES tt_imp_issupplierblacklisted   TYPE TABLE FOR FUNCTION IMPORT zpru_purcorderhdr_tp\\ordertp~issupplierblacklisted.
@@ -46,8 +46,8 @@ CLASS lhc_OrderTP DEFINITION INHERITING FROM cl_abap_behavior_handler.
     METHODS lock FOR LOCK
       IMPORTING keys FOR LOCK OrderTP.
 
-    METHODS getApprovedSupplierList FOR READ
-      IMPORTING keys FOR FUNCTION OrderTP~getApprovedSupplierList RESULT result.
+    METHODS getMajorSupplier FOR READ
+      IMPORTING keys FOR FUNCTION OrderTP~getMajorSupplier RESULT result.
 
     METHODS getStatusHistory FOR READ
       IMPORTING keys FOR FUNCTION OrderTP~getStatusHistory RESULT result.
@@ -222,7 +222,17 @@ CLASS lhc_OrderTP IMPLEMENTATION.
     ENDLOOP.
   ENDMETHOD.
 
-  METHOD getApprovedSupplierList.
+  METHOD getMajorSupplier.
+
+    ASSIGN keys[ 1 ] TO FIELD-SYMBOL(<ls_key>).
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    APPEND INITIAL LINE TO result ASSIGNING FIELD-SYMBOL(<ls_result>).
+    <ls_result>-%cid = <ls_key>-%cid.
+    <ls_result>-%param = zpru_cl_utility_function=>get_major_supplier( ).
+
   ENDMETHOD.
 
   METHOD getStatusHistory.
@@ -255,28 +265,139 @@ CLASS lhc_OrderTP IMPLEMENTATION.
         APPEND INITIAL LINE TO failed-ordertp ASSIGNING FIELD-SYMBOL(<ls_failed>).
         <ls_failed>-%tky = <ls_instance>-%tky.
         <ls_failed>-%fail-cause = if_abap_behv=>cause-not_found.
+        <ls_failed>-%action-getStatusHistory = if_abap_behv=>mk-on.
         CONTINUE.
       ENDIF.
 
-      APPEND INITIAL LINE TO result ASSIGNING FIELD-SYMBOL(<ls_resutl>).
-
-*      zpru_cl_utility_function=>fetch_history(
-*        EXPORTING
-*          is_instance = <ls_instance>
-*        RECEIVING
-*          rt_history  = <ls_resutl>
-*      ).
-
+      APPEND INITIAL LINE TO result ASSIGNING FIELD-SYMBOL(<ls_result>).
+      <ls_result> = zpru_cl_utility_function=>fetch_history( <ls_instance> ).
     ENDLOOP.
   ENDMETHOD.
 
   METHOD isSupplierBlacklisted.
+
+    IF keys IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '001'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF zpru_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP
+         FIELDS ( supplierId )
+         WITH CORRESPONDING #( keys )
+         RESULT DATA(lt_roots).
+
+    IF lt_roots IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING <lo_reported>.
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '002'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_key>).
+
+      ASSIGN lt_roots[ KEY id COMPONENTS %tky = <ls_key>-%tky ] TO FIELD-SYMBOL(<ls_instance>).
+      IF sy-subrc <> 0.
+        APPEND INITIAL LINE TO failed-ordertp ASSIGNING FIELD-SYMBOL(<ls_failed>).
+        <ls_failed>-%tky = <ls_instance>-%tky.
+        <ls_failed>-%fail-cause = if_abap_behv=>cause-not_found.
+        <ls_failed>-%action-isSupplierBlacklisted = if_abap_behv=>mk-on.
+        CONTINUE.
+      ENDIF.
+
+      " always false
+      APPEND INITIAL LINE TO result ASSIGNING FIELD-SYMBOL(<ls_result>).
+      <ls_result>-%tky = <ls_instance>-%tky.
+      <ls_result>-%param-isSupplierBlacklisted =  abap_false.
+
+    ENDLOOP.
+
   ENDMETHOD.
 
   METHOD Activate.
   ENDMETHOD.
 
   METHOD ChangeStatus.
+
+    DATA lt_po_update TYPE lif_business_object=>tt_order_update.
+    DATA lt_reval_rules TYPE lif_business_object=>tt_imp_revalidatepricingrules.
+
+
+    IF keys IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '001'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF zpru_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP
+         ALL FIELDS
+         WITH CORRESPONDING #( keys )
+         RESULT DATA(lt_roots).
+
+    IF lt_roots IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING <lo_reported>.
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '002'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF Zpru_PurcOrderHdr_tp
+    IN LOCAL MODE
+    ENTITY OrderTP
+    EXECUTE isSupplierBlacklisted
+    FROM CORRESPONDING #( keys )
+    RESULT DATA(lt_check_suppliers).
+
+    LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_key>).
+
+      ASSIGN lt_roots[ KEY id COMPONENTS %tky = <ls_key>-%tky ] TO FIELD-SYMBOL(<ls_instance>).
+      IF sy-subrc <> 0.
+        APPEND INITIAL LINE TO failed-ordertp ASSIGNING FIELD-SYMBOL(<ls_failed>).
+        <ls_failed>-%tky = <ls_instance>-%tky.
+        <ls_failed>-%fail-cause = if_abap_behv=>cause-not_found.
+        <ls_failed>-%action-ChangeStatus = if_abap_behv=>mk-on.
+        CONTINUE.
+      ENDIF.
+
+      IF line_exists( lt_check_suppliers[ KEY
+                                          id
+                                          COMPONENTS
+                                          %tky = <ls_instance>-%tky
+                                          %param-isSupplierBlacklisted = abap_true ] ).
+
+        APPEND INITIAL LINE TO failed-ordertp ASSIGNING <ls_failed>.
+        <ls_failed>-%tky = <ls_instance>-%tky.
+        <ls_failed>-%action-ChangeStatus = if_abap_behv=>mk-on.
+
+        APPEND INITIAL LINE TO reported-ordertp ASSIGNING FIELD-SYMBOL(<ls_order_reported>).
+        <ls_order_reported>-%tky        = <ls_instance>-%tky.
+        <ls_order_reported>-%msg        = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                                       number   = '006'
+                                                       severity = if_abap_behv_message=>severity-error
+                                                       v1       = <ls_instance>-purchaseOrderId ).
+
+        CONTINUE.
+      ENDIF.
+
+
+
+
+    ENDLOOP.
+
+* revalidates rules
+
+*update status
+
   ENDMETHOD.
 
   METHOD createFromTemplate.
