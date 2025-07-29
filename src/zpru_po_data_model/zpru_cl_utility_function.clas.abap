@@ -22,6 +22,13 @@ CLASS zpru_cl_utility_function DEFINITION
       RETURNING
         VALUE(rv_error) TYPE boole_d.
 
+    CLASS-METHODS get_inventory_status
+      IMPORTING
+        iv_product_id              TYPE char10
+      RETURNING
+        VALUE(rs_inventory_status) TYPE Zpru_D_InventoryStatus.
+
+
 ENDCLASS.
 
 
@@ -75,6 +82,18 @@ CLASS zpru_cl_utility_function IMPLEMENTATION.
     rs_major_supplier = VALUE #( supplierId = 'SUP1' SupplierName = 'Supplier1'  ).
   ENDMETHOD.
   METHOD send_stat_to_azure.
+
+  ENDMETHOD.
+
+  METHOD get_inventory_status.
+
+    IF iv_product_id = zpru_if_m_po=>cs_products-product_1.
+      rs_inventory_status = VALUE #( InventoryStatus = zpru_if_m_po=>cs_inventory_status-active
+                                     InventoryDate   = sy-datlo ).
+    ELSE.
+      rs_inventory_status = VALUE #( InventoryStatus = zpru_if_m_po=>cs_inventory_status-await
+                                     InventoryDate   = sy-datlo ).
+    ENDIF.
 
   ENDMETHOD.
 

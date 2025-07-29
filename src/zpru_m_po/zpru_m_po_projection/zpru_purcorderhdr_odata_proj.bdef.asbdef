@@ -1,0 +1,27 @@
+projection;
+strict ( 2 );
+use draft;
+
+define behavior for Zpru_PurcOrderHdr_ODATA_Proj //alias <alias_name>
+{
+  use create;
+  use update;
+  use delete;
+
+  use association _items_tp { create; with draft; }
+
+  use action Edit;
+  use action Activate;
+  use action Discard;
+  use action Prepare;
+  use action Resume;
+
+}
+
+define behavior for Zpru_PurcOrderItem_ODATA_Proj //alias <alias_name>
+{
+  use update;
+  use delete;
+
+  use association _header_tp { with draft; }
+}

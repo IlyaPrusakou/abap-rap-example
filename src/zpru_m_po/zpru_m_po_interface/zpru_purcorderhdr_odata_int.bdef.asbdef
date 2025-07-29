@@ -1,0 +1,35 @@
+interface;
+use draft;
+
+define behavior for Zpru_PurcOrderHdr_ODATA_Int alias OrderTP
+{
+  use create;
+  use update;
+  use delete;
+
+  use action checkOrder;
+  use action sendOrderStatisticToAzure;
+  use action ChangeStatus;
+  use action createFromTemplate;
+  use function getMajorSupplier;
+  use function getStatusHistory;
+
+  use action Discard;
+  use action Activate;
+  use action Resume;
+  use action Edit;
+  use action Prepare;
+
+  use association _items_tp { create; with draft; }
+}
+
+define behavior for Zpru_PurcOrderItem_ODATA_Int alias ItemTP
+{
+  use update;
+  use delete;
+
+  use action markAsUrgent;
+  use function getInventoryStatus;
+
+  use association _header_tp { with draft; }
+}

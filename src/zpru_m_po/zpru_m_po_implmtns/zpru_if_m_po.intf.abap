@@ -25,6 +25,11 @@ INTERFACE zpru_if_m_po
                product_1 TYPE char10 VALUE 'PROD1',
              END OF cs_products.
 
+  CONSTANTS: BEGIN OF cs_inventory_status,
+               active TYPE char1 VALUE 'A',
+               await  type char1 value 'W',
+             END OF cs_inventory_status.
+
   CONSTANTS: BEGIN OF cs_whs_location,
                stockpile1 TYPE char20 VALUE 'STOCKPILE1',
                bulky      TYPE char20 VALUE 'BULKY',

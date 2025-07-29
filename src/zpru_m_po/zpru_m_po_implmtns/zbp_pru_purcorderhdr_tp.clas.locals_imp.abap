@@ -212,8 +212,10 @@ CLASS lhc_OrderTP IMPLEMENTATION.
       ENDIF.
 
       CALL FUNCTION 'ENQUEUE_EZPRU_PURC_ORDER'
-        EXPORTING  order_id = <ls_key>-purchaseOrderId
-        EXCEPTIONS OTHERS   = 3.
+        EXPORTING
+          order_id = <ls_key>-purchaseOrderId
+        EXCEPTIONS
+          OTHERS   = 3.
       IF sy-subrc <> 0.
         APPEND INITIAL LINE TO failed-ordertp ASSIGNING FIELD-SYMBOL(<lo_failed>).
         <lo_failed>-purchaseOrderId = <ls_key>-purchaseOrderId.
@@ -268,6 +270,7 @@ CLASS lhc_OrderTP IMPLEMENTATION.
       ENDIF.
 
       APPEND INITIAL LINE TO result ASSIGNING FIELD-SYMBOL(<ls_result>).
+      <ls_result>-%tky = <ls_instance>-%tky.
       <ls_result> = zpru_cl_utility_function=>fetch_history( <ls_instance> ).
     ENDLOOP.
   ENDMETHOD.
@@ -519,8 +522,13 @@ CLASS lhc_OrderTP IMPLEMENTATION.
 
       APPEND INITIAL LINE TO lt_po_update ASSIGNING FIELD-SYMBOL(<ls_order_update>).
       <ls_order_update>-%tky = <ls_instance>-%tky.
-      <ls_order_update>-%data-Status = <ls_instance>-totalAmount * 2.
+      <ls_order_update>-%data-totalAmount = <ls_instance>-totalAmount * 2.
       <ls_order_update>-%control-totalAmount = if_abap_behv=>mk-on.
+
+      APPEND INITIAL LINE TO result ASSIGNING FIELD-SYMBOL(<ls_result>).
+      <ls_result>-%tky = <ls_instance>-%tky.
+      <ls_result>-%param-totalAmount = <ls_order_update>-%data-totalAmount.
+      <ls_result>-%param-headerCurrency = <ls_order_update>-%data-headerCurrency.
 
     ENDLOOP.
 
@@ -820,9 +828,97 @@ CLASS lhc_ItemTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD getInventoryStatus.
+    IF keys IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '001'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF zpru_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY ItemTP
+         FIELDS ( productId )
+         WITH CORRESPONDING #( keys )
+         RESULT DATA(lt_items).
+
+    IF lt_items IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING <lo_reported>.
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '002'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_key>).
+
+      ASSIGN lt_items[ KEY id COMPONENTS %tky = <ls_key>-%tky ] TO FIELD-SYMBOL(<ls_instance>).
+      IF sy-subrc <> 0.
+        APPEND INITIAL LINE TO failed-itemtp ASSIGNING FIELD-SYMBOL(<ls_failed>).
+        <ls_failed>-%tky = <ls_instance>-%tky.
+        <ls_failed>-%fail-cause = if_abap_behv=>cause-not_found.
+        <ls_failed>-%action-getInventoryStatus = if_abap_behv=>mk-on.
+        CONTINUE.
+      ENDIF.
+
+      APPEND INITIAL LINE TO result ASSIGNING FIELD-SYMBOL(<ls_result>).
+      <ls_result>-%tky   = <ls_instance>-%tky.
+      <ls_result>-%param = zpru_cl_utility_function=>get_inventory_status( <ls_instance>-%data-productId ).
+    ENDLOOP.
   ENDMETHOD.
 
   METHOD markAsUrgent.
+    DATA lt_item_update TYPE lif_business_object=>tt_item_update.
+
+    IF keys IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '001'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF zpru_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY ItemTP
+         ALL FIELDS
+         WITH CORRESPONDING #( keys )
+         RESULT DATA(lt_items).
+
+    IF lt_items IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING <lo_reported>.
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '002'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_key>).
+
+      ASSIGN lt_items[ KEY id COMPONENTS %tky = <ls_key>-%tky ] TO FIELD-SYMBOL(<ls_instance>).
+      IF sy-subrc <> 0.
+        APPEND INITIAL LINE TO failed-itemtp ASSIGNING FIELD-SYMBOL(<ls_failed>).
+        <ls_failed>-%tky = <ls_instance>-%tky.
+        <ls_failed>-%fail-cause = if_abap_behv=>cause-not_found.
+        <ls_failed>-%action-markAsUrgent = if_abap_behv=>mk-on.
+        CONTINUE.
+      ENDIF.
+
+      APPEND INITIAL LINE TO lt_item_update ASSIGNING FIELD-SYMBOL(<ls_order_update>).
+      <ls_order_update>-%tky = <ls_instance>-%tky.
+      <ls_order_update>-%data-isUrgent = abap_true.
+      <ls_order_update>-%control-isUrgent = if_abap_behv=>mk-on.
+
+    ENDLOOP.
+
+    " update status
+    IF lt_item_update IS NOT INITIAL.
+      MODIFY ENTITIES OF Zpru_PurcOrderHdr_tp
+             IN LOCAL MODE
+             ENTITY ItemTP
+             UPDATE FROM lt_item_update.
+    ENDIF.
   ENDMETHOD.
 
   METHOD calculateTotalPrice.
