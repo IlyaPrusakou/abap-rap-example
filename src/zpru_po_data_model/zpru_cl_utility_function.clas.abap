@@ -14,6 +14,14 @@ CLASS zpru_cl_utility_function DEFINITION
     CLASS-METHODS get_major_supplier
       RETURNING VALUE(rs_major_supplier) TYPE zpru_if_m_po=>ts_approved_suppliers.
 
+    CLASS-METHODS send_stat_to_azure
+      IMPORTING
+        iv_serverName   TYPE  char40
+        iv_serverAdress TYPE  char11
+        iv_statistic    TYPE i
+      RETURNING
+        VALUE(rv_error) TYPE boole_d.
+
 ENDCLASS.
 
 
@@ -66,4 +74,8 @@ CLASS zpru_cl_utility_function IMPLEMENTATION.
   METHOD get_major_supplier.
     rs_major_supplier = VALUE #( supplierId = 'SUP1' SupplierName = 'Supplier1'  ).
   ENDMETHOD.
+  METHOD send_stat_to_azure.
+
+  ENDMETHOD.
+
 ENDCLASS.

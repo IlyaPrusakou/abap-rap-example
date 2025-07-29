@@ -50,6 +50,24 @@
      <MSGNR>006</MSGNR>
      <TEXT>Supplier blocked for &amp;1</TEXT>
     </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZPRU_PO</ARBGB>
+     <MSGNR>007</MSGNR>
+     <TEXT>No Statistic is available.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZPRU_PO</ARBGB>
+     <MSGNR>008</MSGNR>
+     <TEXT>Error during sending data to Azure</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZPRU_PO</ARBGB>
+     <MSGNR>009</MSGNR>
+     <TEXT>Wrong command</TEXT>
+    </T100>
    </T100>
   </asx:values>
  </asx:abap>

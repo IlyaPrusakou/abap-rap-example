@@ -223,16 +223,14 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD getMajorSupplier.
-
     ASSIGN keys[ 1 ] TO FIELD-SYMBOL(<ls_key>).
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
 
     APPEND INITIAL LINE TO result ASSIGNING FIELD-SYMBOL(<ls_result>).
-    <ls_result>-%cid = <ls_key>-%cid.
+    <ls_result>-%cid   = <ls_key>-%cid.
     <ls_result>-%param = zpru_cl_utility_function=>get_major_supplier( ).
-
   ENDMETHOD.
 
   METHOD getStatusHistory.
@@ -275,7 +273,6 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD isSupplierBlacklisted.
-
     IF keys IS INITIAL.
       APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
       <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
@@ -313,20 +310,17 @@ CLASS lhc_OrderTP IMPLEMENTATION.
       " always false
       APPEND INITIAL LINE TO result ASSIGNING FIELD-SYMBOL(<ls_result>).
       <ls_result>-%tky = <ls_instance>-%tky.
-      <ls_result>-%param-isSupplierBlacklisted =  abap_false.
+      <ls_result>-%param-isSupplierBlacklisted = abap_false.
 
     ENDLOOP.
-
   ENDMETHOD.
 
   METHOD Activate.
   ENDMETHOD.
 
   METHOD ChangeStatus.
-
-    DATA lt_po_update TYPE lif_business_object=>tt_order_update.
+    DATA lt_po_update   TYPE lif_business_object=>tt_order_update.
     DATA lt_reval_rules TYPE lif_business_object=>tt_imp_revalidatepricingrules.
-
 
     IF keys IS INITIAL.
       APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
@@ -351,12 +345,13 @@ CLASS lhc_OrderTP IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    " internal function
     READ ENTITIES OF Zpru_PurcOrderHdr_tp
-    IN LOCAL MODE
-    ENTITY OrderTP
-    EXECUTE isSupplierBlacklisted
-    FROM CORRESPONDING #( keys )
-    RESULT DATA(lt_check_suppliers).
+         IN LOCAL MODE
+         ENTITY OrderTP
+         EXECUTE isSupplierBlacklisted
+         FROM CORRESPONDING #( keys )
+         RESULT DATA(lt_check_suppliers).
 
     LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_key>).
 
@@ -371,33 +366,49 @@ CLASS lhc_OrderTP IMPLEMENTATION.
 
       IF line_exists( lt_check_suppliers[ KEY
                                           id
-                                          COMPONENTS
-                                          %tky = <ls_instance>-%tky
-                                          %param-isSupplierBlacklisted = abap_true ] ).
+                                          COMPONENTS %tky                         = <ls_instance>-%tky
+                                                     %param-isSupplierBlacklisted = abap_true ] ).
 
         APPEND INITIAL LINE TO failed-ordertp ASSIGNING <ls_failed>.
         <ls_failed>-%tky = <ls_instance>-%tky.
         <ls_failed>-%action-ChangeStatus = if_abap_behv=>mk-on.
 
         APPEND INITIAL LINE TO reported-ordertp ASSIGNING FIELD-SYMBOL(<ls_order_reported>).
-        <ls_order_reported>-%tky        = <ls_instance>-%tky.
-        <ls_order_reported>-%msg        = new_message( id       = zpru_if_m_po=>gc_po_message_class
-                                                       number   = '006'
-                                                       severity = if_abap_behv_message=>severity-error
-                                                       v1       = <ls_instance>-purchaseOrderId ).
+        <ls_order_reported>-%tky = <ls_instance>-%tky.
+        <ls_order_reported>-%msg = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                                number   = '006'
+                                                severity = if_abap_behv_message=>severity-error
+                                                v1       = <ls_instance>-purchaseOrderId ).
 
         CONTINUE.
       ENDIF.
 
+      APPEND INITIAL LINE TO lt_reval_rules ASSIGNING FIELD-SYMBOL(<ls_reval_rule>).
+      <ls_reval_rule>-%tky = <ls_instance>-%tky.
 
-
+      APPEND INITIAL LINE TO lt_po_update ASSIGNING FIELD-SYMBOL(<ls_order_update>).
+      <ls_order_update>-%tky = <ls_instance>-%tky.
+      <ls_order_update>-%data-Status = <ls_key>-%param-newstatus.
+      <ls_order_update>-%control-Status = if_abap_behv=>mk-on.
 
     ENDLOOP.
 
-* revalidates rules
+    " internal action
+    IF lt_reval_rules IS NOT INITIAL.
+      MODIFY ENTITIES OF Zpru_PurcOrderHdr_tp
+             IN LOCAL MODE
+             ENTITY OrderTP
+             EXECUTE revalidatePricingRules
+             FROM lt_reval_rules.
+    ENDIF.
 
-*update status
-
+    " update status
+    IF lt_po_update IS NOT INITIAL.
+      MODIFY ENTITIES OF Zpru_PurcOrderHdr_tp
+             IN LOCAL MODE
+             ENTITY OrderTP
+             UPDATE FROM lt_po_update.
+    ENDIF.
   ENDMETHOD.
 
   METHOD createFromTemplate.
@@ -413,9 +424,90 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD revalidatePricingRules.
+    DATA lt_po_update TYPE lif_business_object=>tt_order_update.
+
+    IF keys IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '001'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF zpru_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP
+         FIELDS ( totalAmount )
+         WITH CORRESPONDING #( keys )
+         RESULT DATA(lt_roots).
+
+    IF lt_roots IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING <lo_reported>.
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '002'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_key>).
+
+      ASSIGN lt_roots[ KEY id COMPONENTS %tky = <ls_key>-%tky ] TO FIELD-SYMBOL(<ls_instance>).
+      IF sy-subrc <> 0.
+        APPEND INITIAL LINE TO failed-ordertp ASSIGNING FIELD-SYMBOL(<ls_failed>).
+        <ls_failed>-%tky = <ls_instance>-%tky.
+        <ls_failed>-%fail-cause = if_abap_behv=>cause-not_found.
+        <ls_failed>-%action-revalidatePricingRules = if_abap_behv=>mk-on.
+        CONTINUE.
+      ENDIF.
+
+      APPEND INITIAL LINE TO lt_po_update ASSIGNING FIELD-SYMBOL(<ls_order_update>).
+      <ls_order_update>-%tky = <ls_instance>-%tky.
+      <ls_order_update>-%data-Status = <ls_instance>-totalAmount * 2.
+      <ls_order_update>-%control-totalAmount = if_abap_behv=>mk-on.
+
+    ENDLOOP.
+
+    " update total amount
+    IF lt_po_update IS NOT INITIAL.
+      MODIFY ENTITIES OF Zpru_PurcOrderHdr_tp
+             IN LOCAL MODE
+             ENTITY OrderTP
+             UPDATE FROM lt_po_update.
+    ENDIF.
   ENDMETHOD.
 
   METHOD sendOrderStatisticToAzure.
+    DATA lv_count TYPE i.
+
+    LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_key>).
+
+      CASE <ls_key>-%cid.
+        WHEN zpru_if_m_po=>cs_command-sendtoazure.
+          SELECT COUNT( * ) FROM Zpru_PurcOrderHdr_tp
+            INTO @lv_count.
+          IF sy-subrc <> 0.
+            APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+            <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                         number   = '007'
+                                         severity = if_abap_behv_message=>severity-error ).
+          ENDIF.
+
+          DATA(lv_error) = zpru_cl_utility_function=>send_stat_to_azure( iv_servername   = <ls_key>-%param-serverName
+                                                                         iv_serveradress = <ls_key>-%param-serverAdress
+                                                                         iv_statistic    = lv_count ).
+
+          IF lv_error = abap_true.
+            <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                         number   = '008'
+                                         severity = if_abap_behv_message=>severity-error ).
+          ENDIF.
+
+        WHEN OTHERS.
+          <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                       number   = '009'
+                                       severity = if_abap_behv_message=>severity-error ).
+      ENDCASE.
+    ENDLOOP.
   ENDMETHOD.
 
   METHOD recalculateShippingMethod.
