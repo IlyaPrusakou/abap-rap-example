@@ -112,7 +112,7 @@ changedocuments dependent by _header_tp
   function getInventoryStatus result [1] Zpru_D_InventoryStatus;
 
   determination calculateTotalPrice on modify { field quantity, unitPrice; }
-  determination findWarehouseLocation on save { create; update; }
+  determination findWarehouseLocation on save { create; field productId; }
   validation checkQuantity on save { create; update; }
 
   mapping for zpru_po_item corresponding extensible

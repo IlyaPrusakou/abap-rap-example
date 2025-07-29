@@ -21,10 +21,19 @@ INTERFACE zpru_if_m_po
                sendToAzure TYPE abp_behv_cid VALUE `$sendToAzure`,
              END OF cs_command.
 
+  CONSTANTS: BEGIN OF cs_products,
+               product_1 TYPE char10 VALUE 'PROD1',
+             END OF cs_products.
+
+  CONSTANTS: BEGIN OF cs_whs_location,
+               stockpile1 TYPE char20 VALUE 'STOCKPILE1',
+               bulky      TYPE char20 VALUE 'BULKY',
+             END OF cs_whs_location.
+
   TYPES: ts_getstatushistory_key TYPE STRUCTURE FOR FUNCTION IMPORT zpru_purcorderhdr_tp\\ordertp~getstatushistory.
   TYPES: ts_getstatushistory_res TYPE STRUCTURE FOR FUNCTION RESULT zpru_purcorderhdr_tp\\ordertp~getstatushistory.
   TYPES: ts_order_read_res TYPE STRUCTURE FOR READ RESULT zpru_purcorderhdr_tp\\ordertp.
   TYPES: ts_approved_suppliers TYPE zpru_d_approvedsupplier.
-
+  TYPES: tt_createfromtemplate_key TYPE TABLE FOR ACTION IMPORT zpru_purcorderhdr_tp\\ordertp~createfromtemplate.
 
 ENDINTERFACE.
