@@ -55,7 +55,7 @@ changedocuments master ( ZPRU_PURC_ORDER )
 
   internal action revalidatePricingRules result [0..1] Zpru_D_Total_Amount;
   static action sendOrderStatisticToAzure parameter Zpru_D_Azure_Location;
-  action ChangeStatus parameter Zpru_D_New_Status;
+  action(precheck) ChangeStatus deep parameter Zpru_D_New_Status;
   factory action createFromTemplate parameter Zpru_D_Order_Template [1];
 
   internal function isSupplierBlacklisted result [0..1] Zpru_D_SupplierInBlackList;

@@ -1,0 +1,11 @@
+abstract;
+strict ( 2 );
+with hierarchy;
+
+define behavior for Zpru_D_New_Status_Redefine1 alias statusRedefine1
+{
+  mapping for zpru_d_new_status
+    {
+      newStatus1 = newStatus;
+    }
+}

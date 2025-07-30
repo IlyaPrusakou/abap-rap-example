@@ -1,14 +1,15 @@
-projection;
+projection implementation in class zbp_pru_purcorderhdr_odata_pro unique;
 strict ( 2 );
 use draft;
 
-define behavior for Zpru_PurcOrderHdr_ODATA_Proj //alias <alias_name>
+define behavior for Zpru_PurcOrderHdr_ODATA_Proj alias OrderTP
+use etag
 {
-  use create;
+  use create(augment, precheck);
   use update;
   use delete;
 
-  use association _items_tp { create; with draft; }
+  use association _items_tp { create(augment, precheck); with draft; }
 
   use action Edit;
   use action Activate;
@@ -16,12 +17,27 @@ define behavior for Zpru_PurcOrderHdr_ODATA_Proj //alias <alias_name>
   use action Prepare;
   use action Resume;
 
+  use action checkOrder;
+  use action sendOrderStatisticToAzure;
+  use action(precheck) ChangeStatus;
+  use action createFromTemplate;
+  use function getMajorSupplier;
+  use function getStatusHistory;
+
+  field(modify) isShippingMethodHidden;
+
 }
 
-define behavior for Zpru_PurcOrderItem_ODATA_Proj //alias <alias_name>
+define behavior for Zpru_PurcOrderItem_ODATA_Proj alias ItemTP
 {
   use update;
   use delete;
 
   use association _header_tp { with draft; }
+
+  use action markAsUrgent;
+  use function getInventoryStatus;
+
+  field(modify) isWarehouseLocationHidden;
+
 }

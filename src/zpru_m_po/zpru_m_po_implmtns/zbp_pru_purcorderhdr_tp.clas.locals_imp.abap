@@ -102,6 +102,8 @@ CLASS lhc_OrderTP DEFINITION INHERITING FROM cl_abap_behavior_handler.
       IMPORTING keys FOR DELETE OrderTP.
     METHODS get_instance_features FOR INSTANCE FEATURES
       IMPORTING keys REQUEST requested_features FOR OrderTP RESULT result.
+    METHODS precheck_changestatus FOR PRECHECK
+      IMPORTING keys FOR ACTION ordertp~changestatus.
 
 ENDCLASS.
 
@@ -795,6 +797,10 @@ CLASS lhc_OrderTP IMPLEMENTATION.
       ENDIF.
     ENDLOOP.
   ENDMETHOD.
+
+  METHOD precheck_ChangeStatus.
+  ENDMETHOD.
+
 ENDCLASS.
 
 

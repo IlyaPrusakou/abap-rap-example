@@ -22,6 +22,10 @@ as projection on Zpru_PurcOrderItem_ODATA_Int
     createOn,
     changedBy,
     changedOn,
+    
+    virtual isWarehouseLocationHidden : boole_d,
+    
+    
     /* Associations */
     _header_tp : redirected to parent Zpru_PurcOrderHdr_ODATA_Proj
 }

@@ -1,7 +1,9 @@
 interface;
+extensible;
 use draft;
 
 define behavior for Zpru_PurcOrderHdr_ODATA_Int alias OrderTP
+
 {
   use create;
   use update;
@@ -9,7 +11,7 @@ define behavior for Zpru_PurcOrderHdr_ODATA_Int alias OrderTP
 
   use action checkOrder;
   use action sendOrderStatisticToAzure;
-  use action ChangeStatus;
+  use action ChangeStatus deep parameter Zpru_D_New_Status_Redefine1;
   use action createFromTemplate;
   use function getMajorSupplier;
   use function getStatusHistory;
