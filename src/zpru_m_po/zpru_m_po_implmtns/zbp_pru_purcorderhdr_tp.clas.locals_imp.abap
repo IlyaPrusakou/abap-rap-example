@@ -27,6 +27,10 @@ INTERFACE lif_business_object.
   TYPES tt_order_update                TYPE TABLE FOR UPDATE Zpru_PurcOrderHdr_tp\\OrderTP.
   TYPES tt_item_update                 TYPE TABLE FOR UPDATE Zpru_PurcOrderHdr_tp\\ItemTP.
   TYPES tt_read_item_assoc_imp TYPE TABLE FOR READ IMPORT Zpru_PurcOrderHdr_tp\_items_tp.
+  TYPES tt_abstract_root_bo TYPE TABLE FOR HIERARCHY Zpru_PurcOrderHdr_Abstract\\orderAbstract.
+  TYPES tt_abstract_item_bo TYPE TABLE FOR HIERARCHY Zpru_PurcOrderHdr_Abstract\\itemAbstract.
+  TYPES tt_abstract_root_bo2 TYPE TABLE FOR HIERARCHY Zpru_PurcOrderHdr_Abs_Redefine\\orderAbstract3.
+
 
 
   CONSTANTS: BEGIN OF cs_state_area,

@@ -23,6 +23,7 @@ as projection on Zpru_PurcOrderItem_ODATA_Int
     changedBy,
     changedOn,
     
+    @ObjectModel.virtualElementCalculatedBy: 'ABAP:ZPRU_CL_ITM_VIRT_ELEM_EXIT'
     virtual isWarehouseLocationHidden : boole_d,
     
     

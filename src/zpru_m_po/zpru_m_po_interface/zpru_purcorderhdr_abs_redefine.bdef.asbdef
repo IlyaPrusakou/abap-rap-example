@@ -1,0 +1,84 @@
+abstract;
+strict ( 2 );
+with hierarchy;
+extensible;
+
+define behavior for Zpru_PurcOrderHdr_Abs_Redefine alias orderAbstract3
+extensible
+with control
+{
+  association _items_abs3;
+  association _cross_bo3 with hierarchy; // cross bo included into defived type for hierarchy
+
+  field ( mandatory : execute ) buyerId3, supplierId3, orderDate3; // always must be supplied
+
+  mapping for zpru_purcorderhdr_abstract corresponding extensible // map on event parameter BDEF for the sake of redefinition
+    {
+      buyerId3         = buyerId2;
+      buyerName3       = buyerName2;
+      deliveryDate3    = deliveryDate2;
+      headerCurrency3  = headerCurrency2;
+      orderDate3       = orderDate2;
+      paymentTerms3    = paymentTerms2;
+      purchaseOrderId3 = purchaseOrderId2;
+      shippingMethod3  = shippingMethod2;
+      status3          = status2;
+      supplierId3      = supplierId2;
+      supplierName3    = supplierName2;
+      totalAmount3     = totalAmount2;
+    }
+
+  deep mapping for zpru_purcorderhdr_partner corresponding extensible // map on dictionary structure
+    {
+          buyerId3         = buyer_Id2;
+          buyerName3       = buyer_Name2;
+          deliveryDate3    = delivery_Date2;
+          headerCurrency3  = header_Currency2;
+          orderDate3       = order_Date2;
+          paymentTerms3    = payment_Terms2;
+          purchaseOrderId3 = purchase_Order_Id2;
+          shippingMethod3  = shipping_Method2;
+          status3          = status2;
+          supplierId3      = supplier_Id2;
+          supplierName3    = supplier_Name2;
+          totalAmount3     = total_Amount2;
+      sub _items_abs3      = items2; // map on nested table
+    }
+}
+
+define behavior for Zpru_PurcOrderItem_Abs_Redefin alias itemAbstract3
+extensible
+{
+  association _header_abs3;
+
+  field ( suppress ) purchaseOrderId3; // suppress redundant field in derived type for hierarchy
+
+  mapping for zpru_purcorderitem_abstract corresponding extensible
+    {
+      deliveryDate3    = deliveryDate2;
+      isUrgent3        = isUrgent2;
+      itemCurrency3    = itemCurrency2;
+      itemId3          = itemId2;
+      itemNumber3      = itemNumber2;
+      productId3       = productId2;
+      productName3     = productName2;
+      quantity3        = quantity2;
+      totalPrice3      = totalPrice2;
+      unitPrice3       = unitPrice2;
+    }
+
+  deep mapping for zpru_purcorderitem_partner corresponding extensible
+    {
+      deliveryDate3 = delivery_Date2;
+      isUrgent3     = is_Urgent2;
+      itemCurrency3 = item_Currency2;
+      itemId3       = item_Id2;
+      itemNumber3   = item_Number2;
+      productId3    = product_Id2;
+      productName3  = product_Name2;
+      quantity3     = quantity2;
+      totalPrice3   = total_Price2;
+      unitPrice3    = unit_Price2;
+    }
+
+}

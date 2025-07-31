@@ -25,10 +25,11 @@ define root view entity Zpru_PurcOrderHdr_ODATA_Proj
       changedOn,
       lastChanged,
       
+      @ObjectModel.virtualElementCalculatedBy: 'ABAP:ZPRU_CL_PO_VIRT_ELEM_EXIT'
       virtual isShippingMethodHidden : boole_d,
-      
-      
       
       /* Associations */
       _items_tp : redirected to composition child Zpru_PurcOrderItem_ODATA_Proj
 }
+where
+  supplierId <> 'BANSUP6' // managed instance filter

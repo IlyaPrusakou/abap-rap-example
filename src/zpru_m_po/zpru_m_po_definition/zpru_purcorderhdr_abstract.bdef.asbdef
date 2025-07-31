@@ -1,0 +1,55 @@
+abstract;
+strict ( 2 );
+with hierarchy;
+extensible;
+
+define behavior for Zpru_PurcOrderHdr_Abstract alias orderAbstract
+extensible
+with control
+{
+  association _items_abs;
+  association _cross_bo with hierarchy; // cross bo included into defived type for hierarchy
+
+  field ( mandatory : execute ) buyerId2, supplierId2, orderDate2; // always must be supplied
+
+  deep mapping for zpru_purcorderhdr_partner corresponding extensible // map on dictionary structure
+    {
+          buyerId2         = buyer_Id2;
+          buyerName2       = buyer_Name2;
+          deliveryDate2    = delivery_Date2;
+          headerCurrency2  = header_Currency2;
+          orderDate2       = order_Date2;
+          paymentTerms2    = payment_Terms2;
+          purchaseOrderId2 = purchase_Order_Id2;
+          shippingMethod2  = shipping_Method2;
+          status2          = status2;
+          supplierId2      = supplier_Id2;
+          supplierName2    = supplier_Name2;
+          totalAmount2     = total_Amount2;
+      sub _items_abs       = items2; // map on nested table
+    }
+}
+
+
+define behavior for Zpru_PurcOrderItem_Abstract alias itemAbstract
+extensible
+with control
+{
+  association _header_abs;
+
+  field ( suppress ) purchaseOrderId2; // suppress redundant field in derived type for hierarchy
+
+  deep mapping for zpru_purcorderitem_partner corresponding extensible
+    {
+      deliveryDate2 = delivery_Date2;
+      isUrgent2     = is_Urgent2;
+      itemCurrency2 = item_Currency2;
+      itemId2       = item_Id2;
+      itemNumber2   = item_Number2;
+      productId2    = product_Id2;
+      productName2  = product_Name2;
+      quantity2     = quantity2;
+      totalPrice2   = total_Price2;
+      unitPrice2    = unit_Price2;
+    }
+}

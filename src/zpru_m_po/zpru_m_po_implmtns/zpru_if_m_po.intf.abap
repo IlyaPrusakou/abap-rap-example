@@ -27,6 +27,7 @@ INTERFACE zpru_if_m_po
                sup3 TYPE char10 VALUE `SUP3`,
                sup4 TYPE char10 VALUE `SUP4`,
                banned_sup5 TYPE char10 VALUE `BANSUP5`, " used in interface BDEF as managed instance filter
+               banned_sup6 TYPE char10 VALUE `BANSUP6`, " used in projection BDEF as managed instance filter
              END OF cs_supplier.
 
 

@@ -1,15 +1,18 @@
 projection implementation in class zbp_pru_purcorderhdr_odata_pro unique;
 strict ( 2 );
+with managed instance filter; // combined with interface filter
 use draft;
 
-define behavior for Zpru_PurcOrderHdr_ODATA_Proj alias OrderTP
+define behavior for Zpru_PurcOrderHdr_ODATA_Proj alias OrderProj
 use etag
 {
-  use create(augment, precheck);
+  field ( modify ) isShippingMethodHidden; // augment operation for virtual element
+
+  use create ( augment, precheck ); // augment and precheck must be implemented ABP for projection
   use update;
   use delete;
 
-  use association _items_tp { create(augment, precheck); with draft; }
+  use association _items_tp { create ( augment, precheck ); with draft; } // augment and precheck must be implemented on ABP projection
 
   use action Edit;
   use action Activate;
@@ -19,16 +22,17 @@ use etag
 
   use action checkOrder;
   use action sendOrderStatisticToAzure;
-  use action(precheck) ChangeStatus;
+  use action ( precheck ) ChangeStatus; // precheck must be implemented on ABP projection
   use action createFromTemplate;
   use function getMajorSupplier;
-  use function getStatusHistory;
+  //  use function getStatusHistory; // instead exposition I've defined my owm function version
 
-  field(modify) isShippingMethodHidden;
+//  action sendToIDOC deep table parameter Zpru_PurcOrderHdr_Abstract; // completly new action on projection with deep nested parameter
+//  function getStatusHistory deep result [0..*] ZPRU_D_HistoryRoot;
 
 }
 
-define behavior for Zpru_PurcOrderItem_ODATA_Proj alias ItemTP
+define behavior for Zpru_PurcOrderItem_ODATA_Proj alias ItemProj
 {
   use update;
   use delete;
@@ -38,6 +42,6 @@ define behavior for Zpru_PurcOrderItem_ODATA_Proj alias ItemTP
   use action markAsUrgent;
   use function getInventoryStatus;
 
-  field(modify) isWarehouseLocationHidden;
+  field ( modify ) isWarehouseLocationHidden; // augment operation for virtual element
 
 }

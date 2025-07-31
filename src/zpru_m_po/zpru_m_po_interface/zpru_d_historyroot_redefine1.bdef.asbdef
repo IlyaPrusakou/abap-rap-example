@@ -1,0 +1,27 @@
+abstract;
+strict ( 2 );
+with hierarchy;
+
+define behavior for ZPRU_D_HistoryRoot_Redefine1 alias History2
+{
+  association records2;
+  mapping for zpru_d_historyroot
+    {
+      pid2             = pid;
+      purchaseOrderId2 = purchaseOrderId;
+    }
+
+
+}
+
+define behavior for Zpru_D_StatusHistoryRecord_Rn1 alias Record
+{
+  association header2;
+
+  mapping for zpru_d_statushistoryrecord
+    {
+      endTimestamp2   = endTimestamp;
+      startTimestamp2 = startTimestamp;
+    }
+
+}

@@ -1,11 +1,14 @@
 interface;
 extensible;
-with managed instance filter;
+with managed instance filter; // where cond in root cds will be evaluated for EML and Odata requests
 use draft;
 
-define behavior for Zpru_PurcOrderHdr_ODATA_Int alias OrderTP
+define behavior for Zpru_PurcOrderHdr_ODATA_Int alias OrderInt
 
 {
+
+  field ( suppress ) controlTimestamp; // remove the field from derived types
+
   use create;
   use update;
   use delete;
@@ -15,8 +18,8 @@ define behavior for Zpru_PurcOrderHdr_ODATA_Int alias OrderTP
   use action ChangeStatus deep parameter Zpru_D_New_Status_Redefine1; // redefined parameter
   use action createFromTemplate;
   use function getMajorSupplier;
-  use function getStatusHistory;
-  use function getAllItems result entity Zpru_PurcOrderItem_ODATA_Int;
+  use function getStatusHistory deep result ZPRU_D_HistoryRoot_Redefine1; // redefined result
+  use function getAllItems result entity Zpru_PurcOrderItem_ODATA_Int; // projected result
 
   use action Discard;
   use action Activate;
@@ -24,10 +27,12 @@ define behavior for Zpru_PurcOrderHdr_ODATA_Int alias OrderTP
   use action Edit;
   use action Prepare;
 
+  use event orderCreated deep parameter Zpru_PurcOrderHdr_Abs_Redefine; // redefined event parameter
+
   use association _items_tp { create; with draft; }
 }
 
-define behavior for Zpru_PurcOrderItem_ODATA_Int alias ItemTP
+define behavior for Zpru_PurcOrderItem_ODATA_Int alias ItemInt
 {
   use update;
   use delete;
