@@ -12,6 +12,8 @@ CLASS lhc_OrderTP DEFINITION INHERITING FROM cl_abap_behavior_handler.
 
     METHODS precheck_cba_Items_tp FOR PRECHECK
       IMPORTING entities FOR CREATE OrderTP\_Items_tp.
+    METHODS precheck_ChangeStatus FOR PRECHECK
+      IMPORTING keys FOR ACTION OrderTP~ChangeStatus.
 
 ENDCLASS.
 
@@ -27,6 +29,9 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD precheck_cba_Items_tp.
+  ENDMETHOD.
+
+  METHOD precheck_ChangeStatus.
   ENDMETHOD.
 
 ENDCLASS.

@@ -27,3 +27,5 @@ define root view entity Zpru_PurcOrderHdr_ODATA_Int
       /* Associations */
       _items_tp : redirected to composition child Zpru_PurcOrderItem_ODATA_Int
 }
+where
+  supplierId <> 'BANSUP5' // managed instance filter

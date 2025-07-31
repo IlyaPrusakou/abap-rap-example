@@ -26,6 +26,8 @@ INTERFACE lif_business_object.
   TYPES tt_prch_ordertp                TYPE TABLE FOR CREATE zpru_purcorderhdr_tp\\ordertp.
   TYPES tt_order_update                TYPE TABLE FOR UPDATE Zpru_PurcOrderHdr_tp\\OrderTP.
   TYPES tt_item_update                 TYPE TABLE FOR UPDATE Zpru_PurcOrderHdr_tp\\ItemTP.
+  TYPES tt_read_item_assoc_imp TYPE TABLE FOR READ IMPORT Zpru_PurcOrderHdr_tp\_items_tp.
+
 
   CONSTANTS: BEGIN OF cs_state_area,
                BEGIN OF order,
@@ -104,6 +106,8 @@ CLASS lhc_OrderTP DEFINITION INHERITING FROM cl_abap_behavior_handler.
       IMPORTING keys REQUEST requested_features FOR OrderTP RESULT result.
     METHODS precheck_changestatus FOR PRECHECK
       IMPORTING keys FOR ACTION ordertp~changestatus.
+    METHODS getallitems FOR READ
+      IMPORTING keys FOR FUNCTION ordertp~getallitems REQUEST request RESULT result.
 
 ENDCLASS.
 
@@ -799,6 +803,46 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD precheck_ChangeStatus.
+  ENDMETHOD.
+
+  METHOD getAllItems.
+
+    DATA lt_read_input TYPE lif_business_object=>tt_read_item_assoc_imp.
+
+    IF keys IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '001'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_key>).
+      APPEND INITIAL LINE TO lt_read_input ASSIGNING FIELD-SYMBOL(<ls_read_input>).
+      <ls_read_input>-%tky = <ls_key>-%tky.
+      <ls_read_input>-%control = CORRESPONDING #( request ).
+    ENDLOOP.
+
+    READ ENTITIES OF zpru_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP BY \_items_tp
+         FROM lt_read_input
+         RESULT DATA(lt_items).
+
+    IF lt_items IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING <lo_reported>.
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '002'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    LOOP AT lt_items ASSIGNING FIELD-SYMBOL(<ls_item>).
+      APPEND INITIAL LINE TO result ASSIGNING FIELD-SYMBOL(<ls_result>).
+      <ls_result>-%tky = CORRESPONDING #( <ls_item>-%tky ).
+      <ls_result>-%param = CORRESPONDING #( <ls_item> ).
+    ENDLOOP.
+
   ENDMETHOD.
 
 ENDCLASS.

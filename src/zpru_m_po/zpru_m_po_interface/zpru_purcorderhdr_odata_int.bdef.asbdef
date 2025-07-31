@@ -1,5 +1,6 @@
 interface;
 extensible;
+with managed instance filter;
 use draft;
 
 define behavior for Zpru_PurcOrderHdr_ODATA_Int alias OrderTP
@@ -11,10 +12,11 @@ define behavior for Zpru_PurcOrderHdr_ODATA_Int alias OrderTP
 
   use action checkOrder;
   use action sendOrderStatisticToAzure;
-  use action ChangeStatus deep parameter Zpru_D_New_Status_Redefine1;
+  use action ChangeStatus deep parameter Zpru_D_New_Status_Redefine1; // redefined parameter
   use action createFromTemplate;
   use function getMajorSupplier;
   use function getStatusHistory;
+  use function getAllItems result entity Zpru_PurcOrderItem_ODATA_Int;
 
   use action Discard;
   use action Activate;
