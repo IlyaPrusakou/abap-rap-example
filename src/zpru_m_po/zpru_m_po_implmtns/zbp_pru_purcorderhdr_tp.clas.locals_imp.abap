@@ -26,11 +26,11 @@ INTERFACE lif_business_object.
   TYPES tt_prch_ordertp                TYPE TABLE FOR CREATE zpru_purcorderhdr_tp\\ordertp.
   TYPES tt_order_update                TYPE TABLE FOR UPDATE Zpru_PurcOrderHdr_tp\\OrderTP.
   TYPES tt_item_update                 TYPE TABLE FOR UPDATE Zpru_PurcOrderHdr_tp\\ItemTP.
-  TYPES tt_read_item_assoc_imp TYPE TABLE FOR READ IMPORT Zpru_PurcOrderHdr_tp\_items_tp.
-  TYPES tt_abstract_root_bo TYPE TABLE FOR HIERARCHY Zpru_PurcOrderHdr_Abstract\\orderAbstract.
-  TYPES tt_abstract_item_bo TYPE TABLE FOR HIERARCHY Zpru_PurcOrderHdr_Abstract\\itemAbstract.
-  TYPES tt_abstract_root_bo2 TYPE TABLE FOR HIERARCHY Zpru_PurcOrderHdr_Abs_Redefine\\orderAbstract3.
-
+  TYPES tt_read_item_assoc_imp         TYPE TABLE FOR READ IMPORT Zpru_PurcOrderHdr_tp\_items_tp.
+  TYPES tt_abstract_root_bo            TYPE TABLE FOR HIERARCHY Zpru_PurcOrderHdr_Abstract\\orderAbstract.
+  TYPES tt_abstract_item_bo            TYPE TABLE FOR HIERARCHY Zpru_PurcOrderHdr_Abstract\\itemAbstract.
+  TYPES tt_abstract_root_bo2           TYPE TABLE FOR HIERARCHY Zpru_PurcOrderHdr_Abs_Redefine\\orderAbstract3.
+  TYPES tt_createpo_event_in           TYPE TABLE FOR EVENT Zpru_PurcOrderHdr_tp~orderCreated.
 
 
   CONSTANTS: BEGIN OF cs_state_area,
@@ -222,10 +222,8 @@ CLASS lhc_OrderTP IMPLEMENTATION.
       ENDIF.
 
       CALL FUNCTION 'ENQUEUE_EZPRU_PURC_ORDER'
-        EXPORTING
-          order_id = <ls_key>-purchaseOrderId
-        EXCEPTIONS
-          OTHERS   = 3.
+        EXPORTING  order_id = <ls_key>-purchaseOrderId
+        EXCEPTIONS OTHERS   = 3.
       IF sy-subrc <> 0.
         APPEND INITIAL LINE TO failed-ordertp ASSIGNING FIELD-SYMBOL(<lo_failed>).
         <lo_failed>-purchaseOrderId = <ls_key>-purchaseOrderId.
@@ -537,7 +535,7 @@ CLASS lhc_OrderTP IMPLEMENTATION.
 
       APPEND INITIAL LINE TO result ASSIGNING FIELD-SYMBOL(<ls_result>).
       <ls_result>-%tky = <ls_instance>-%tky.
-      <ls_result>-%param-totalAmount = <ls_order_update>-%data-totalAmount.
+      <ls_result>-%param-totalAmount    = <ls_order_update>-%data-totalAmount.
       <ls_result>-%param-headerCurrency = <ls_order_update>-%data-headerCurrency.
 
     ENDLOOP.
@@ -810,7 +808,6 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD getAllItems.
-
     DATA lt_read_input TYPE lif_business_object=>tt_read_item_assoc_imp.
 
     IF keys IS INITIAL.
@@ -823,7 +820,7 @@ CLASS lhc_OrderTP IMPLEMENTATION.
 
     LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_key>).
       APPEND INITIAL LINE TO lt_read_input ASSIGNING FIELD-SYMBOL(<ls_read_input>).
-      <ls_read_input>-%tky = <ls_key>-%tky.
+      <ls_read_input>-%tky     = <ls_key>-%tky.
       <ls_read_input>-%control = CORRESPONDING #( request ).
     ENDLOOP.
 
@@ -843,12 +840,10 @@ CLASS lhc_OrderTP IMPLEMENTATION.
 
     LOOP AT lt_items ASSIGNING FIELD-SYMBOL(<ls_item>).
       APPEND INITIAL LINE TO result ASSIGNING FIELD-SYMBOL(<ls_result>).
-      <ls_result>-%tky = CORRESPONDING #( <ls_item>-%tky ).
+      <ls_result>-%tky   = CORRESPONDING #( <ls_item>-%tky ).
       <ls_result>-%param = CORRESPONDING #( <ls_item> ).
     ENDLOOP.
-
   ENDMETHOD.
-
 ENDCLASS.
 
 
@@ -1148,11 +1143,136 @@ CLASS lsc_ZPRU_PURCORDERHDR_TP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD save_modified.
+    DATA lt_payload TYPE lif_business_object=>tt_createpo_event_in.
+
+    IF create IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    LOOP AT create-ordertp ASSIGNING FIELD-SYMBOL(<ls_order>).
+
+      " read data from cross bo
+      DATA(ls_history) =  zpru_cl_utility_function=>fetch_history( CORRESPONDING #( <ls_order> ) ).
+
+      APPEND INITIAL LINE TO lt_payload ASSIGNING FIELD-SYMBOL(<ls_PO_payload>).
+      <ls_PO_payload>-%key-purchaseOrderId = <ls_order>-%key-purchaseOrderId.
+      <ls_PO_payload>-%param-purchaseorderid2 = <ls_order>-purchaseorderid.
+      <ls_PO_payload>-%param-orderdate2       = <ls_order>-orderdate.
+      <ls_PO_payload>-%param-supplierid2      = <ls_order>-supplierid.
+      <ls_PO_payload>-%param-suppliername2    = <ls_order>-suppliername.
+      <ls_PO_payload>-%param-buyerid2         = <ls_order>-buyerid.
+      <ls_PO_payload>-%param-buyername2       = <ls_order>-buyername.
+      <ls_PO_payload>-%param-totalamount2     = <ls_order>-totalamount.
+      <ls_PO_payload>-%param-headercurrency2  = <ls_order>-headercurrency.
+      <ls_PO_payload>-%param-deliverydate2    = <ls_order>-deliverydate.
+      <ls_PO_payload>-%param-status2          = <ls_order>-status.
+      <ls_PO_payload>-%param-paymentterms2    = <ls_order>-paymentterms.
+      <ls_PO_payload>-%param-shippingmethod2  = <ls_order>-shippingmethod.
+      <ls_PO_payload>-%control-purchaseorderid2 = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-orderdate2       = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-supplierid2      = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-suppliername2    = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-buyerid2         = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-buyername2       = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-totalamount2     = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-headercurrency2  = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-deliverydate2    = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-status2          = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-paymentterms2    = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-shippingmethod2  = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-_cross_bo        = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-_items_abs       = if_abap_behv=>mk-on.
+
+      LOOP AT create-itemtp ASSIGNING FIELD-SYMBOL(<ls_item>)
+           WHERE purchaseorderid = <ls_order>-purchaseorderid.
+        APPEND INITIAL LINE TO <ls_PO_payload>-%param-_items_abs ASSIGNING FIELD-SYMBOL(<ls_item_payload>).
+        <ls_item_payload>-itemid2            = <ls_item>-itemid.
+        <ls_item_payload>-itemnumber2        = <ls_item>-itemnumber.
+        <ls_item_payload>-productid2         = <ls_item>-productid.
+        <ls_item_payload>-productname2       = <ls_item>-productname.
+        <ls_item_payload>-quantity2          = <ls_item>-quantity.
+        <ls_item_payload>-unitprice2         = <ls_item>-unitprice.
+        <ls_item_payload>-totalprice2        = <ls_item>-totalprice.
+        <ls_item_payload>-deliverydate2      = <ls_item>-deliverydate.
+        <ls_item_payload>-warehouselocation2 = <ls_item>-warehouselocation.
+        <ls_item_payload>-itemcurrency2      = <ls_item>-itemcurrency.
+        <ls_item_payload>-isurgent2          = <ls_item>-isurgent.
+        <ls_item_payload>-%control-itemid2            = if_abap_behv=>mk-on.
+        <ls_item_payload>-%control-itemnumber2        = if_abap_behv=>mk-on.
+        <ls_item_payload>-%control-productid2         = if_abap_behv=>mk-on.
+        <ls_item_payload>-%control-productname2       = if_abap_behv=>mk-on.
+        <ls_item_payload>-%control-quantity2          = if_abap_behv=>mk-on.
+        <ls_item_payload>-%control-unitprice2         = if_abap_behv=>mk-on.
+        <ls_item_payload>-%control-totalprice2        = if_abap_behv=>mk-on.
+        <ls_item_payload>-%control-deliverydate2      = if_abap_behv=>mk-on.
+        <ls_item_payload>-%control-warehouselocation2 = if_abap_behv=>mk-on.
+        <ls_item_payload>-%control-itemcurrency2      = if_abap_behv=>mk-on.
+        <ls_item_payload>-%control-isurgent2          = if_abap_behv=>mk-on.
+
+      ENDLOOP.
+
+      " fill cross bo data in payload
+      <ls_po_payload>-%param-_cross_bo-purchaseOrderId = ls_history-%param-purchaseOrderId.
+      LOOP AT ls_history-%param-records ASSIGNING FIELD-SYMBOL(<ls_record>).
+        APPEND INITIAL LINE TO <ls_po_payload>-%param-_cross_bo-records ASSIGNING FIELD-SYMBOL(<ls_record_payload>).
+        <ls_record_payload>-StartTimestamp = <ls_record>-StartTimestamp.
+        <ls_record_payload>-EndTimestamp   = <ls_record>-EndTimestamp.
+      ENDLOOP.
+
+    ENDLOOP.
+
+    IF lt_payload IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    RAISE ENTITY EVENT Zpru_PurcOrderHdr_tp~orderCreated
+          FROM lt_payload.
   ENDMETHOD.
 
   METHOD cleanup.
+
+*  " Example: Clear temporary data and release locks
+*
+*  " Clear temporary data
+*  CLEAR create.
+*  CLEAR update.
+*  CLEAR delete.
+*
+*  " Release any locks held on entities
+*  TRY.
+*      CALL FUNCTION 'DEQUEUE_ALL'.
+*    CATCH cx_root INTO DATA(lx_error).
+*      " Log the error if lock release fails
+*      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+*      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+*                                   number   = '999'
+*                                   severity = if_abap_behv_message=>severity-error
+*                                   v1       = lx_error->get_text( ) ).
+*  ENDTRY.
+*
+*  " Additional cleanup logic can be added here
+
+
   ENDMETHOD.
 
   METHOD cleanup_finalize.
+
+
+*  " Log a message indicating cleanup finalization
+*  APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+*  <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+*                               number   = '998'
+*                               severity = if_abap_behv_message=>severity-info
+*                               v1       = 'Cleanup finalization complete.' ).
+*
+*  " Clear any remaining temporary data
+*  CLEAR create.
+*  CLEAR update.
+*  CLEAR delete.
+*
+*  " Additional finalization logic can be added here if needed
+
+
+
   ENDMETHOD.
 ENDCLASS.

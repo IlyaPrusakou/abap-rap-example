@@ -90,6 +90,23 @@ changedocuments master ( ZPRU_PURC_ORDER )
       changedOn        = changed_on;
       lastChanged      = last_changed;
     }
+
+  // optional mapping for root node
+  mapping for zpru_purcorderhdr_partner control zpru_purcorderhdr_partner_ctrl corresponding extensible // map on dictionary structure
+    {
+      buyerId         = buyer_Id2 control buyer_id4;
+      buyerName       = buyer_Name2 control buyer_name4;
+      deliveryDate    = delivery_Date2 control delivery_date4;
+      headerCurrency  = header_Currency2 control header_currency4;
+      orderDate       = order_Date2 control order_date4;
+      paymentTerms    = payment_Terms2 control payment_terms4;
+      purchaseOrderId = purchase_Order_Id2 control purchase_Order_Id4;
+      shippingMethod  = shipping_Method2 control shipping_Method4;
+      status          = status2 control status4;
+      supplierId      = supplier_Id2 control supplier_Id4;
+      supplierName    = supplier_Name2 control supplier_Name4;
+      totalAmount     = total_Amount2 control total_Amount4;
+    }
 }
 
 define behavior for Zpru_PurcOrderItem_tp alias ItemTP
@@ -135,5 +152,20 @@ changedocuments dependent by _header_tp
       createOn          = create_on;
       changedBy         = changed_by;
       changedOn         = changed_on;
+    }
+
+  // optional mapping for item node
+  mapping for zpru_purcorderitem_partner control zpru_purcorderitem_partner_ctr corresponding extensible
+    {
+      deliveryDate = delivery_Date2 control delivery_Date4;
+      isUrgent     = is_Urgent2 control is_Urgent4;
+      itemCurrency = item_Currency2 control item_Currency4;
+      itemId       = item_Id2 control item_Id4;
+      itemNumber   = item_Number2 control item_Number4;
+      productId    = product_Id2 control product_Id4;
+      productName  = product_Name2 control product_Name4;
+      quantity     = quantity2 control quantity4;
+      totalPrice   = total_Price2 control total_Price4;
+      unitPrice    = unit_Price2 control unit_Price4;
     }
 }
