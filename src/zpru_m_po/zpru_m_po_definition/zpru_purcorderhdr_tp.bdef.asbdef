@@ -23,9 +23,9 @@ late numbering
 changedocuments master ( ZPRU_PURC_ORDER )
 {
 
-  field ( readonly : update ) purchaseOrderId;
-  field ( mandatory ) supplierId, deliveryDate;
-  field ( readonly ) status, buyerId, buyerName;
+  field ( readonly : update ) purchaseOrderId, headerCurrency;
+  field ( mandatory ) supplierId, deliveryDate, buyerId;
+  field ( readonly ) status, buyerName, supplierName, totalAmount;
   field ( features : instance ) paymentTerms;
 
   create ( precheck );
@@ -39,18 +39,28 @@ changedocuments master ( ZPRU_PURC_ORDER )
   draft action Edit with additional implementation;
   draft determine action Prepare extensible
   {
+    determination ( always ) calcTotalAmount;
     determination ( always ) setControlTimestamp;
-    validation ( always ) checkDates;
     determination ( always ) ItemTP~findWarehouseLocation;
+    validation ( always ) checkDates;
+    validation ( always ) checkHeaderCurrency;
+    validation ( always ) checkSupplier;
+    validation ( always ) checkBuyer;
     validation ( always ) ItemTP~checkQuantity;
+    validation ( always ) ItemTP~checkItemCurrency;
   }
 
   determine action checkOrder
   {
+    determination ( always ) calcTotalAmount;
     determination ( always ) setControlTimestamp;
-    validation ( always ) checkDates;
     determination ( always ) ItemTP~findWarehouseLocation;
+    validation ( always ) checkDates;
+    validation ( always ) checkHeaderCurrency;
+    validation ( always ) checkSupplier;
+    validation ( always ) checkBuyer;
     validation ( always ) ItemTP~checkQuantity;
+    validation ( always ) ItemTP~checkItemCurrency;
   }
 
   internal action revalidatePricingRules result [0..1] Zpru_D_Total_Amount;
@@ -64,8 +74,13 @@ changedocuments master ( ZPRU_PURC_ORDER )
   function getAllItems result selective [0..*] entity Zpru_PurcOrderItem_tp; //QQQ CHECK DUPLICATE ENTRIES
 
   validation checkDates on save { create; field orderDate, deliveryDate; }
+  validation checkHeaderCurrency on save { create; }
+  validation checkSupplier on save { create; update; }
+  validation checkBuyer on save { create; update; }
   determination recalculateShippingMethod on modify { field supplierId; }
-  determination setControlTimestamp on save { create; update; }
+  determination determineNames on modify { field supplierId, buyerId; }
+  determination setControlTimestamp on save { create; }
+  determination calcTotalAmount on save { create; update; }
 
   event orderCreated deep parameter Zpru_PurcOrderHdr_Abstract;
 
@@ -108,7 +123,6 @@ changedocuments master ( ZPRU_PURC_ORDER )
       totalAmount     = total_Amount2 control total_Amount4;
     }
 }
-
 define behavior for Zpru_PurcOrderItem_tp alias ItemTP
 persistent table zpru_po_item
 draft table zpru_poitm_draft
@@ -120,9 +134,9 @@ extensible
 changedocuments dependent by _header_tp
 {
 
-  field ( readonly ) totalPrice;
-  field ( readonly : update ) purchaseOrderId, itemId, productId;
-  field ( mandatory : create ) productId;
+  field ( readonly ) totalPrice, warehouseLocation, itemNumber;
+  field ( readonly : update ) purchaseOrderId, itemId, productId, itemCurrency;
+  field ( mandatory : create ) productId, quantity, unitPrice;
   update;
   delete;
 
@@ -133,7 +147,9 @@ changedocuments dependent by _header_tp
 
   determination calculateTotalPrice on modify { field quantity, unitPrice; }
   determination findWarehouseLocation on save { create; field productId; }
+  determination writeItemNumber on save { create; }
   validation checkQuantity on save { create; update; }
+  validation checkItemCurrency on save { create; }
 
   mapping for zpru_po_item corresponding extensible
     {

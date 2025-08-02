@@ -26,6 +26,7 @@ INTERFACE lif_business_object.
   TYPES tt_prch_ordertp                TYPE TABLE FOR CREATE zpru_purcorderhdr_tp\\ordertp.
   TYPES tt_order_update                TYPE TABLE FOR UPDATE Zpru_PurcOrderHdr_tp\\OrderTP.
   TYPES tt_item_update                 TYPE TABLE FOR UPDATE Zpru_PurcOrderHdr_tp\\ItemTP.
+  TYPES tt_ORDER_READ_iN               TYPE TABLE FOR READ IMPORT Zpru_PurcOrderHdr_tp\\OrderTP.
   TYPES tt_read_item_assoc_imp         TYPE TABLE FOR READ IMPORT Zpru_PurcOrderHdr_tp\_items_tp.
   TYPES tt_abstract_root_bo            TYPE TABLE FOR HIERARCHY Zpru_PurcOrderHdr_Abstract\\orderAbstract.
   TYPES tt_abstract_item_bo            TYPE TABLE FOR HIERARCHY Zpru_PurcOrderHdr_Abstract\\itemAbstract.
@@ -35,11 +36,15 @@ INTERFACE lif_business_object.
 
   CONSTANTS: BEGIN OF cs_state_area,
                BEGIN OF order,
-                 checkDates    TYPE string VALUE `checkdates`,
-                 checkQuantity TYPE string VALUE `checkQuantity`,
+                 checkDates          TYPE string VALUE `checkdates`,
+                 checkQuantity       TYPE string VALUE `checkQuantity`,
+                 checkHeaderCurrency TYPE string VALUE `checkHeaderCurrency`,
+                 checkSupplier       TYPE string VALUE `checkSupplier`,
+                 checkBuyer          TYPE string VALUE `checkBuyer`,
                END OF order,
                BEGIN OF item,
-                 checkQuantity TYPE string VALUE `checkquantity`,
+                 checkQuantity     TYPE string VALUE `checkquantity`,
+                 checkItemCurrency TYPE string VALUE `checkItemCurrency`,
                END OF item,
              END OF cs_state_area.
 
@@ -112,12 +117,24 @@ CLASS lhc_OrderTP DEFINITION INHERITING FROM cl_abap_behavior_handler.
       IMPORTING keys FOR ACTION ordertp~changestatus.
     METHODS getallitems FOR READ
       IMPORTING keys FOR FUNCTION ordertp~getallitems REQUEST request RESULT result.
+    METHODS determinenames FOR DETERMINE ON MODIFY
+      IMPORTING keys FOR ordertp~determinenames.
+    METHODS checkheadercurrency FOR VALIDATE ON SAVE
+      IMPORTING keys FOR ordertp~checkheadercurrency.
+    METHODS checksupplier FOR VALIDATE ON SAVE
+      IMPORTING keys FOR ordertp~checksupplier.
+    METHODS checkbuyer FOR VALIDATE ON SAVE
+      IMPORTING keys FOR ordertp~checkbuyer.
+    METHODS calctotalamount FOR DETERMINE ON SAVE
+      IMPORTING keys FOR ordertp~calctotalamount.
 
 ENDCLASS.
 
 
 CLASS lhc_OrderTP IMPLEMENTATION.
   METHOD get_instance_authorizations.
+    DATA lt_order_read_in TYPE lif_business_object=>tt_ORDER_READ_iN.
+
     IF keys IS INITIAL.
       APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
       <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
@@ -126,11 +143,13 @@ CLASS lhc_OrderTP IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    lt_order_read_in = CORRESPONDING #( keys ).
+
     READ ENTITIES OF zpru_purcorderhdr_tp
          IN LOCAL MODE
          ENTITY OrderTP
          FIELDS ( status )
-         WITH CORRESPONDING #( keys )
+         WITH lt_order_read_in
          RESULT DATA(lt_roots).
 
     IF lt_roots IS INITIAL.
@@ -171,8 +190,7 @@ CLASS lhc_OrderTP IMPLEMENTATION.
         <lo_order>-%tky = <ls_instance>-%tky.
         <lo_order>-%msg = new_message( id       = zpru_if_m_po=>gc_po_message_class
                                        number   = '004'
-                                       severity = if_abap_behv_message=>severity-error
-                                       v1       = <ls_instance>-purchaseOrderId ).
+                                       severity = if_abap_behv_message=>severity-error ).
       ELSE.
         APPEND INITIAL LINE TO result ASSIGNING <ls_result>.
         <ls_result>-%is_draft       = <ls_result>-%is_draft.
@@ -388,8 +406,7 @@ CLASS lhc_OrderTP IMPLEMENTATION.
         <ls_order_reported>-%tky = <ls_instance>-%tky.
         <ls_order_reported>-%msg = new_message( id       = zpru_if_m_po=>gc_po_message_class
                                                 number   = '006'
-                                                severity = if_abap_behv_message=>severity-error
-                                                v1       = <ls_instance>-purchaseOrderId ).
+                                                severity = if_abap_behv_message=>severity-error ).
 
         CONTINUE.
       ENDIF.
@@ -712,7 +729,7 @@ CLASS lhc_OrderTP IMPLEMENTATION.
       <ls_order_reported>-%tky        = <ls_instance>-%tky.
       <ls_order_reported>-%state_area = lif_business_object=>cs_state_area-order-checkdates.
 
-      IF <ls_instance>-orderDate > <ls_instance>-deliveryDate.
+      IF <ls_instance>-orderDate > <ls_instance>-DeliveryDate.
         APPEND INITIAL LINE TO failed-ordertp ASSIGNING <ls_failed>.
         <ls_failed>-%tky = <ls_instance>-%tky.
 
@@ -721,8 +738,7 @@ CLASS lhc_OrderTP IMPLEMENTATION.
         <ls_order_reported>-%state_area = lif_business_object=>cs_state_area-order-checkdates.
         <ls_order_reported>-%msg        = new_message( id       = zpru_if_m_po=>gc_po_message_class
                                                        number   = '005'
-                                                       severity = if_abap_behv_message=>severity-error
-                                                       v1       = <ls_instance>-purchaseOrderId ).
+                                                       severity = if_abap_behv_message=>severity-error ).
       ENDIF.
     ENDLOOP.
   ENDMETHOD.
@@ -844,6 +860,280 @@ CLASS lhc_OrderTP IMPLEMENTATION.
       <ls_result>-%param = CORRESPONDING #( <ls_item> ).
     ENDLOOP.
   ENDMETHOD.
+
+  METHOD determineNames.
+    DATA lt_order_update TYPE lif_business_object=>tt_order_update.
+
+    IF keys IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '001'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF zpru_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP
+         ALL FIELDS WITH CORRESPONDING #( keys )
+         RESULT DATA(lt_roots).
+
+    IF lt_roots IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING <lo_reported>.
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '002'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    LOOP AT lt_roots ASSIGNING FIELD-SYMBOL(<ls_instance>).
+
+      APPEND INITIAL LINE TO lt_order_update ASSIGNING FIELD-SYMBOL(<ls_order_update>).
+      <ls_order_update>-%tky = <ls_instance>-%tky.
+      <ls_order_update>-%data-SupplierName = zpru_cl_utility_function=>get_supplier_name( <ls_instance>-supplierId ).
+      <ls_order_update>-%control-SupplierName = if_abap_behv=>mk-on.
+
+      <ls_order_update>-%data-buyerName = zpru_cl_utility_function=>get_buyer_name( <ls_instance>-buyerId ).
+      <ls_order_update>-%control-buyerName = if_abap_behv=>mk-on.
+
+    ENDLOOP.
+
+    IF lt_order_update IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    MODIFY ENTITIES OF Zpru_PurcOrderHdr_tp
+           IN LOCAL MODE
+           ENTITY OrderTP
+           UPDATE FROM lt_order_update.
+  ENDMETHOD.
+
+  METHOD checkHeaderCurrency.
+    IF keys IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '001'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF zpru_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP
+         FIELDS ( headercurrency )
+         WITH CORRESPONDING #( keys )
+         RESULT DATA(lt_roots).
+
+    IF lt_roots IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING <lo_reported>.
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '002'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_key>).
+
+      ASSIGN lt_roots[ KEY id COMPONENTS %tky = <ls_key>-%tky ] TO FIELD-SYMBOL(<ls_instance>).
+      IF sy-subrc <> 0.
+        APPEND INITIAL LINE TO failed-ordertp ASSIGNING FIELD-SYMBOL(<ls_failed>).
+        <ls_failed>-%tky = <ls_instance>-%tky.
+        <ls_failed>-%fail-cause = if_abap_behv=>cause-not_found.
+        CONTINUE.
+      ENDIF.
+
+      APPEND INITIAL LINE TO reported-ordertp ASSIGNING FIELD-SYMBOL(<ls_order_reported>).
+      <ls_order_reported>-%tky        = <ls_instance>-%tky.
+      <ls_order_reported>-%state_area = lif_business_object=>cs_state_area-order-checkHeaderCurrency.
+
+      IF <ls_instance>-headerCurrency <> 'USD'.
+        APPEND INITIAL LINE TO failed-ordertp ASSIGNING <ls_failed>.
+        <ls_failed>-%tky = <ls_instance>-%tky.
+
+        APPEND INITIAL LINE TO reported-ordertp ASSIGNING <ls_order_reported>.
+        <ls_order_reported>-%tky        = <ls_instance>-%tky.
+        <ls_order_reported>-%state_area = lif_business_object=>cs_state_area-order-checkHeaderCurrency.
+        <ls_order_reported>-%msg        = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                                       number   = '011'
+                                                       severity = if_abap_behv_message=>severity-error ).
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD checkSupplier.
+    IF keys IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '001'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF zpru_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP
+         FIELDS ( supplierId )
+         WITH CORRESPONDING #( keys )
+         RESULT DATA(lt_roots).
+
+    IF lt_roots IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING <lo_reported>.
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '002'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_key>).
+
+      ASSIGN lt_roots[ KEY id COMPONENTS %tky = <ls_key>-%tky ] TO FIELD-SYMBOL(<ls_instance>).
+      IF sy-subrc <> 0.
+        APPEND INITIAL LINE TO failed-ordertp ASSIGNING FIELD-SYMBOL(<ls_failed>).
+        <ls_failed>-%tky = <ls_instance>-%tky.
+        <ls_failed>-%fail-cause = if_abap_behv=>cause-not_found.
+        CONTINUE.
+      ENDIF.
+
+      APPEND INITIAL LINE TO reported-ordertp ASSIGNING FIELD-SYMBOL(<ls_order_reported>).
+      <ls_order_reported>-%tky        = <ls_instance>-%tky.
+      <ls_order_reported>-%state_area = lif_business_object=>cs_state_area-order-checksupplier.
+
+      IF    <ls_instance>-supplierId = zpru_if_m_po=>cs_supplier-sup1
+         OR <ls_instance>-supplierId = zpru_if_m_po=>cs_supplier-sup2
+         OR <ls_instance>-supplierId = zpru_if_m_po=>cs_supplier-sup3
+         OR <ls_instance>-supplierId = zpru_if_m_po=>cs_supplier-sup4.
+        CONTINUE.
+      ENDIF.
+
+      APPEND INITIAL LINE TO failed-ordertp ASSIGNING <ls_failed>.
+      <ls_failed>-%tky = <ls_instance>-%tky.
+
+      APPEND INITIAL LINE TO reported-ordertp ASSIGNING <ls_order_reported>.
+      <ls_order_reported>-%tky        = <ls_instance>-%tky.
+      <ls_order_reported>-%state_area = lif_business_object=>cs_state_area-order-checksupplier.
+      <ls_order_reported>-%msg        = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                                     number   = '012'
+                                                     severity = if_abap_behv_message=>severity-error ).
+
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD checkBuyer.
+    IF keys IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '001'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF zpru_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP
+         FIELDS ( buyerId )
+         WITH CORRESPONDING #( keys )
+         RESULT DATA(lt_roots).
+
+    IF lt_roots IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING <lo_reported>.
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '002'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_key>).
+
+      ASSIGN lt_roots[ KEY id COMPONENTS %tky = <ls_key>-%tky ] TO FIELD-SYMBOL(<ls_instance>).
+      IF sy-subrc <> 0.
+        APPEND INITIAL LINE TO failed-ordertp ASSIGNING FIELD-SYMBOL(<ls_failed>).
+        <ls_failed>-%tky = <ls_instance>-%tky.
+        <ls_failed>-%fail-cause = if_abap_behv=>cause-not_found.
+        CONTINUE.
+      ENDIF.
+
+      APPEND INITIAL LINE TO reported-ordertp ASSIGNING FIELD-SYMBOL(<ls_order_reported>).
+      <ls_order_reported>-%tky        = <ls_instance>-%tky.
+      <ls_order_reported>-%state_area = lif_business_object=>cs_state_area-order-checkbuyer.
+
+      IF    <ls_instance>-buyerId = zpru_if_m_po=>cs_buyer-buy1
+         OR <ls_instance>-buyerId = zpru_if_m_po=>cs_buyer-buy2
+         OR <ls_instance>-buyerId = zpru_if_m_po=>cs_buyer-buy3
+         OR <ls_instance>-buyerId = zpru_if_m_po=>cs_buyer-buy4
+         OR <ls_instance>-buyerId = zpru_if_m_po=>cs_buyer-buy5.
+        CONTINUE.
+      ENDIF.
+
+      APPEND INITIAL LINE TO failed-ordertp ASSIGNING <ls_failed>.
+      <ls_failed>-%tky = <ls_instance>-%tky.
+
+      APPEND INITIAL LINE TO reported-ordertp ASSIGNING <ls_order_reported>.
+      <ls_order_reported>-%tky        = <ls_instance>-%tky.
+      <ls_order_reported>-%state_area = lif_business_object=>cs_state_area-order-checkbuyer.
+      <ls_order_reported>-%msg        = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                                     number   = '013'
+                                                     severity = if_abap_behv_message=>severity-error ).
+
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD calcTotalAmount.
+    DATA lt_order_update     TYPE lif_business_object=>tt_order_update.
+    DATA lv_new_total_amount TYPE Zpru_PurcOrderHdr_tp-totalAmount.
+
+    IF keys IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '001'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF zpru_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP
+         ALL FIELDS WITH CORRESPONDING #( keys )
+         RESULT DATA(lt_roots).
+
+    IF lt_roots IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING <lo_reported>.
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '002'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF zpru_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP BY \_items_tp
+         ALL FIELDS WITH CORRESPONDING #( lt_roots )
+         RESULT DATA(lt_items).
+
+    LOOP AT lt_roots ASSIGNING FIELD-SYMBOL(<ls_instance>).
+
+      CLEAR lv_new_total_amount.
+      LOOP AT lt_items ASSIGNING FIELD-SYMBOL(<ls_item>) WHERE %pidparent = <ls_instance>-%pid.
+        lv_new_total_amount = lv_new_total_amount + <ls_item>-%data-totalPrice.
+      ENDLOOP.
+      " prevent auto triggering
+      IF <ls_instance>-totalAmount <> lv_new_total_amount.
+        APPEND INITIAL LINE TO lt_order_update ASSIGNING FIELD-SYMBOL(<ls_order_update>).
+        <ls_order_update>-%tky        = <ls_instance>-%tky.
+        <ls_order_update>-totalAmount = lv_new_total_amount.
+        <ls_order_update>-%control-totalAmount = if_abap_behv=>mk-on.
+      ENDIF.
+
+    ENDLOOP.
+
+    IF lt_order_update IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    MODIFY ENTITIES OF Zpru_PurcOrderHdr_tp
+           IN LOCAL MODE
+           ENTITY OrderTP
+           UPDATE FROM lt_order_update.
+  ENDMETHOD.
 ENDCLASS.
 
 
@@ -868,6 +1158,10 @@ CLASS lhc_ItemTP DEFINITION INHERITING FROM cl_abap_behavior_handler.
       IMPORTING keys FOR ItemTP~checkQuantity.
     METHODS get_global_authorizations FOR GLOBAL AUTHORIZATION
       IMPORTING REQUEST requested_authorizations FOR ItemTP RESULT result.
+    METHODS checkItemCurrency FOR VALIDATE ON SAVE
+      IMPORTING keys FOR ItemTP~checkItemCurrency.
+    METHODS writeItemNumber FOR DETERMINE ON SAVE
+      IMPORTING keys FOR ItemTP~writeItemNumber.
 
 ENDCLASS.
 
@@ -1114,13 +1408,115 @@ CLASS lhc_ItemTP IMPLEMENTATION.
         <ls_reported>-%state_area = lif_business_object=>cs_state_area-order-checkQuantity.
         <ls_reported>-%msg        = new_message( id       = zpru_if_m_po=>gc_po_message_class
                                                  number   = '010'
-                                                 severity = if_abap_behv_message=>severity-error
-                                                 v1       = <ls_instance>-purchaseOrderId ).
+                                                 severity = if_abap_behv_message=>severity-error ).
       ENDIF.
     ENDLOOP.
   ENDMETHOD.
 
   METHOD get_global_authorizations.
+  ENDMETHOD.
+
+  METHOD checkItemCurrency.
+    IF keys IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '001'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF zpru_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY ItemTP
+         FIELDS ( itemCurrency )
+         WITH CORRESPONDING #( keys )
+         RESULT DATA(lt_items).
+
+    IF lt_items IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING <lo_reported>.
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '002'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_key>).
+
+      ASSIGN lt_items[ KEY id COMPONENTS %tky = <ls_key>-%tky ] TO FIELD-SYMBOL(<ls_instance>).
+      IF sy-subrc <> 0.
+        APPEND INITIAL LINE TO failed-itemtp ASSIGNING FIELD-SYMBOL(<ls_failed>).
+        <ls_failed>-%tky = <ls_instance>-%tky.
+        <ls_failed>-%fail-cause = if_abap_behv=>cause-not_found.
+        CONTINUE.
+      ENDIF.
+
+      APPEND INITIAL LINE TO reported-itemtp ASSIGNING FIELD-SYMBOL(<ls_item_reported>).
+      <ls_item_reported>-%tky        = <ls_instance>-%tky.
+      <ls_item_reported>-%state_area = lif_business_object=>cs_state_area-item-checkitemcurrency.
+
+      IF <ls_instance>-itemCurrency <> 'USD'.
+        APPEND INITIAL LINE TO failed-itemtp ASSIGNING <ls_failed>.
+        <ls_failed>-%tky = <ls_instance>-%tky.
+
+        APPEND INITIAL LINE TO reported-itemtp ASSIGNING <ls_item_reported>.
+        <ls_item_reported>-%tky        = <ls_instance>-%tky.
+        <ls_item_reported>-%state_area = lif_business_object=>cs_state_area-item-checkitemcurrency.
+        <ls_item_reported>-%msg        = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                                      number   = '011'
+                                                      severity = if_abap_behv_message=>severity-error ).
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD writeItemNumber.
+    DATA lt_item_update TYPE lif_business_object=>tt_item_update.
+
+    IF keys IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '001'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF zpru_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY ItemTP
+         ALL FIELDS
+         WITH CORRESPONDING #( keys )
+         RESULT DATA(lt_items).
+
+    IF lt_items IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING <lo_reported>.
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '002'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    LOOP AT lt_items ASSIGNING FIELD-SYMBOL(<ls_instance>) GROUP BY <ls_instance>-%pidparent ASSIGNING FIELD-SYMBOL(<lv_po>).
+
+      DATA(lv_count) = 0.
+      LOOP AT GROUP <lv_po> ASSIGNING FIELD-SYMBOL(<ls_member>).
+
+        lv_count = lv_count + 1.
+
+        APPEND INITIAL LINE TO lt_item_update ASSIGNING FIELD-SYMBOL(<ls_item_update>).
+        <ls_item_update>-%tky = <ls_member>-%tky.
+        <ls_item_update>-%data-itemNumber = lv_count.
+        <ls_item_update>-%control-itemNumber = if_abap_behv=>mk-on.
+      ENDLOOP.
+
+    ENDLOOP.
+
+    IF lt_item_update IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    MODIFY ENTITIES OF Zpru_PurcOrderHdr_tp
+           IN LOCAL MODE
+           ENTITY ItemTP
+           UPDATE FROM lt_item_update.
   ENDMETHOD.
 ENDCLASS.
 
@@ -1140,10 +1536,55 @@ ENDCLASS.
 
 CLASS lsc_ZPRU_PURCORDERHDR_TP IMPLEMENTATION.
   METHOD adjust_numbers.
+    DATA lv_last_po_number TYPE i.
+    DATA lv_last_po_char   TYPE zpru_de_po_id.
+    DATA lv_count_char     TYPE zpru_de_po_itm_id.
+
+    IF mapped IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF Zpru_PurcOrderHdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP BY \_items_tp
+         ALL FIELDS WITH VALUE #( FOR <ls_r>
+                                  IN mapped-ordertp
+                                  ( %tky-%pid            = <ls_r>-%pre-%pid
+                                    %tky-purchaseOrderId = <ls_r>-%pre-%tmp-purchaseOrderId ) )
+         LINK DATA(lt_link).
+
+    lv_last_po_number = zpru_cl_utility_function=>get_last_po_number( ).
+
+    LOOP AT mapped-ordertp ASSIGNING FIELD-SYMBOL(<ls_order>).
+      lv_last_po_number = lv_last_po_number + 1.
+      lv_last_po_char = lv_last_po_number.
+      <ls_order>-%key-purchaseOrderId = |{ lv_last_po_char ALPHA = IN }|.
+
+      DATA(lv_count) = 0.
+      LOOP AT lt_link ASSIGNING FIELD-SYMBOL(<ls_link>)
+           USING KEY pid
+           WHERE     source-%pid            = <ls_order>-%pre-%pid
+                 AND source-purchaseOrderId = <ls_order>-%pre-%tmp-purchaseOrderId.
+
+        lv_count = lv_count + 1.
+        lv_count_char = lv_count.
+
+        ASSIGN mapped-itemtp[ %pre-%pid                 = <ls_link>-target-%pky-%pid
+                              %pre-%tmp-purchaseOrderId = <ls_link>-target-%pky-purchaseOrderId ] TO FIELD-SYMBOL(<ls_item_target>).
+        IF sy-subrc <> 0.
+          CONTINUE.
+        ENDIF.
+
+        <ls_item_target>-%key-purchaseOrderId = <ls_order>-%key-purchaseOrderId.
+        <ls_item_target>-%key-itemId          = |{ lv_count_char ALPHA = IN }|.
+      ENDLOOP.
+    ENDLOOP.
   ENDMETHOD.
 
   METHOD save_modified.
-    DATA lt_payload TYPE lif_business_object=>tt_createpo_event_in.
+    DATA lt_payload           TYPE lif_business_object=>tt_createpo_event_in.
+    DATA ls_ddic_po_partner   TYPE zpru_purcorderhdr_partner.
+    DATA lt_ddic_item_partner TYPE STANDARD TABLE OF zpru_purcorderitem_partner WITH EMPTY KEY.
 
     IF create IS INITIAL.
       RETURN.
@@ -1156,60 +1597,73 @@ CLASS lsc_ZPRU_PURCORDERHDR_TP IMPLEMENTATION.
 
       APPEND INITIAL LINE TO lt_payload ASSIGNING FIELD-SYMBOL(<ls_PO_payload>).
       <ls_PO_payload>-%key-purchaseOrderId = <ls_order>-%key-purchaseOrderId.
-      <ls_PO_payload>-%param-purchaseorderid2 = <ls_order>-purchaseorderid.
-      <ls_PO_payload>-%param-orderdate2       = <ls_order>-orderdate.
-      <ls_PO_payload>-%param-supplierid2      = <ls_order>-supplierid.
-      <ls_PO_payload>-%param-suppliername2    = <ls_order>-suppliername.
-      <ls_PO_payload>-%param-buyerid2         = <ls_order>-buyerid.
-      <ls_PO_payload>-%param-buyername2       = <ls_order>-buyername.
-      <ls_PO_payload>-%param-totalamount2     = <ls_order>-totalamount.
-      <ls_PO_payload>-%param-headercurrency2  = <ls_order>-headercurrency.
-      <ls_PO_payload>-%param-deliverydate2    = <ls_order>-deliverydate.
-      <ls_PO_payload>-%param-status2          = <ls_order>-status.
-      <ls_PO_payload>-%param-paymentterms2    = <ls_order>-paymentterms.
-      <ls_PO_payload>-%param-shippingmethod2  = <ls_order>-shippingmethod.
-      <ls_PO_payload>-%control-purchaseorderid2 = if_abap_behv=>mk-on.
-      <ls_PO_payload>-%control-orderdate2       = if_abap_behv=>mk-on.
-      <ls_PO_payload>-%control-supplierid2      = if_abap_behv=>mk-on.
-      <ls_PO_payload>-%control-suppliername2    = if_abap_behv=>mk-on.
-      <ls_PO_payload>-%control-buyerid2         = if_abap_behv=>mk-on.
-      <ls_PO_payload>-%control-buyername2       = if_abap_behv=>mk-on.
-      <ls_PO_payload>-%control-totalamount2     = if_abap_behv=>mk-on.
-      <ls_PO_payload>-%control-headercurrency2  = if_abap_behv=>mk-on.
-      <ls_PO_payload>-%control-deliverydate2    = if_abap_behv=>mk-on.
-      <ls_PO_payload>-%control-status2          = if_abap_behv=>mk-on.
-      <ls_PO_payload>-%control-paymentterms2    = if_abap_behv=>mk-on.
-      <ls_PO_payload>-%control-shippingmethod2  = if_abap_behv=>mk-on.
-      <ls_PO_payload>-%control-_cross_bo        = if_abap_behv=>mk-on.
-      <ls_PO_payload>-%control-_items_abs       = if_abap_behv=>mk-on.
 
-      LOOP AT create-itemtp ASSIGNING FIELD-SYMBOL(<ls_item>)
-           WHERE purchaseorderid = <ls_order>-purchaseorderid.
-        APPEND INITIAL LINE TO <ls_PO_payload>-%param-_items_abs ASSIGNING FIELD-SYMBOL(<ls_item_payload>).
-        <ls_item_payload>-itemid2            = <ls_item>-itemid.
-        <ls_item_payload>-itemnumber2        = <ls_item>-itemnumber.
-        <ls_item_payload>-productid2         = <ls_item>-productid.
-        <ls_item_payload>-productname2       = <ls_item>-productname.
-        <ls_item_payload>-quantity2          = <ls_item>-quantity.
-        <ls_item_payload>-unitprice2         = <ls_item>-unitprice.
-        <ls_item_payload>-totalprice2        = <ls_item>-totalprice.
-        <ls_item_payload>-deliverydate2      = <ls_item>-deliverydate.
-        <ls_item_payload>-warehouselocation2 = <ls_item>-warehouselocation.
-        <ls_item_payload>-itemcurrency2      = <ls_item>-itemcurrency.
-        <ls_item_payload>-isurgent2          = <ls_item>-isurgent.
-        <ls_item_payload>-%control-itemid2            = if_abap_behv=>mk-on.
-        <ls_item_payload>-%control-itemnumber2        = if_abap_behv=>mk-on.
-        <ls_item_payload>-%control-productid2         = if_abap_behv=>mk-on.
-        <ls_item_payload>-%control-productname2       = if_abap_behv=>mk-on.
-        <ls_item_payload>-%control-quantity2          = if_abap_behv=>mk-on.
-        <ls_item_payload>-%control-unitprice2         = if_abap_behv=>mk-on.
-        <ls_item_payload>-%control-totalprice2        = if_abap_behv=>mk-on.
-        <ls_item_payload>-%control-deliverydate2      = if_abap_behv=>mk-on.
-        <ls_item_payload>-%control-warehouselocation2 = if_abap_behv=>mk-on.
-        <ls_item_payload>-%control-itemcurrency2      = if_abap_behv=>mk-on.
-        <ls_item_payload>-%control-isurgent2          = if_abap_behv=>mk-on.
+      " I've made this correspondings only for the sake of showing BDEF mappings in action
+      ls_ddic_po_partner = CORRESPONDING #( <ls_order> MAPPING FROM ENTITY USING CONTROL ).
+      <ls_PO_payload>-%param = CORRESPONDING #( ls_ddic_po_partner MAPPING TO ENTITY CHANGING CONTROL ).
 
-      ENDLOOP.
+      " executed via corresponding above
+*      <ls_PO_payload>-%param-purchaseorderid2 = <ls_order>-purchaseorderid.
+*      <ls_PO_payload>-%param-orderdate2       = <ls_order>-orderdate.
+*      <ls_PO_payload>-%param-supplierid2      = <ls_order>-supplierid.
+*      <ls_PO_payload>-%param-suppliername2    = <ls_order>-suppliername.
+*      <ls_PO_payload>-%param-buyerid2         = <ls_order>-buyerid.
+*      <ls_PO_payload>-%param-buyername2       = <ls_order>-buyername.
+*      <ls_PO_payload>-%param-totalamount2     = <ls_order>-totalamount.
+*      <ls_PO_payload>-%param-headercurrency2  = <ls_order>-headercurrency.
+*      <ls_PO_payload>-%param-deliverydate2    = <ls_order>-deliverydate.
+*      <ls_PO_payload>-%param-status2          = <ls_order>-status.
+*      <ls_PO_payload>-%param-paymentterms2    = <ls_order>-paymentterms.
+*      <ls_PO_payload>-%param-shippingmethod2  = <ls_order>-shippingmethod.
+
+      " executed via corresponding above(relates only marked(not all flags) flags in <ls_order>-%control)
+*      <ls_PO_payload>-%control-purchaseorderid2 = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-orderdate2       = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-supplierid2      = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-suppliername2    = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-buyerid2         = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-buyername2       = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-totalamount2     = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-headercurrency2  = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-deliverydate2    = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-status2          = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-paymentterms2    = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-shippingmethod2  = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-_cross_bo        = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-_items_abs       = if_abap_behv=>mk-on.
+
+      " I've made this correspondings only for the sake of showing BDEF mappings in action
+      lt_ddic_item_partner = CORRESPONDING #( create-itemtp MAPPING FROM ENTITY USING CONTROL ).
+      <ls_PO_payload>-%param-_items_abs = CORRESPONDING #( lt_ddic_item_partner MAPPING TO ENTITY CHANGING CONTROL ).
+
+      " executed via corresponding above
+*      LOOP AT create-itemtp ASSIGNING FIELD-SYMBOL(<ls_item>)
+*           WHERE purchaseorderid = <ls_order>-purchaseorderid.
+*        APPEND INITIAL LINE TO <ls_PO_payload>-%param-_items_abs ASSIGNING FIELD-SYMBOL(<ls_item_payload>).
+*        <ls_item_payload>-itemid2            = <ls_item>-itemid.
+*        <ls_item_payload>-itemnumber2        = <ls_item>-itemnumber.
+*        <ls_item_payload>-productid2         = <ls_item>-productid.
+*        <ls_item_payload>-productname2       = <ls_item>-productname.
+*        <ls_item_payload>-quantity2          = <ls_item>-quantity.
+*        <ls_item_payload>-unitprice2         = <ls_item>-unitprice.
+*        <ls_item_payload>-totalprice2        = <ls_item>-totalprice.
+*        <ls_item_payload>-deliverydate2      = <ls_item>-deliverydate.
+*        <ls_item_payload>-warehouselocation2 = <ls_item>-warehouselocation.
+*        <ls_item_payload>-itemcurrency2      = <ls_item>-itemcurrency.
+*        <ls_item_payload>-isurgent2          = <ls_item>-isurgent.
+*        <ls_item_payload>-%control-itemid2            = if_abap_behv=>mk-on.
+*        <ls_item_payload>-%control-itemnumber2        = if_abap_behv=>mk-on.
+*        <ls_item_payload>-%control-productid2         = if_abap_behv=>mk-on.
+*        <ls_item_payload>-%control-productname2       = if_abap_behv=>mk-on.
+*        <ls_item_payload>-%control-quantity2          = if_abap_behv=>mk-on.
+*        <ls_item_payload>-%control-unitprice2         = if_abap_behv=>mk-on.
+*        <ls_item_payload>-%control-totalprice2        = if_abap_behv=>mk-on.
+*        <ls_item_payload>-%control-deliverydate2      = if_abap_behv=>mk-on.
+*        <ls_item_payload>-%control-warehouselocation2 = if_abap_behv=>mk-on.
+*        <ls_item_payload>-%control-itemcurrency2      = if_abap_behv=>mk-on.
+*        <ls_item_payload>-%control-isurgent2          = if_abap_behv=>mk-on.
+*
+*      ENDLOOP.
 
       " fill cross bo data in payload
       <ls_po_payload>-%param-_cross_bo-purchaseOrderId = ls_history-%param-purchaseOrderId.
@@ -1230,7 +1684,6 @@ CLASS lsc_ZPRU_PURCORDERHDR_TP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD cleanup.
-
 *  " Example: Clear temporary data and release locks
 *
 *  " Clear temporary data
@@ -1246,24 +1699,18 @@ CLASS lsc_ZPRU_PURCORDERHDR_TP IMPLEMENTATION.
 *      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
 *      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
 *                                   number   = '999'
-*                                   severity = if_abap_behv_message=>severity-error
-*                                   v1       = lx_error->get_text( ) ).
+*                                   severity = if_abap_behv_message=>severity-error ).
 *  ENDTRY.
 *
 *  " Additional cleanup logic can be added here
-
-
   ENDMETHOD.
 
   METHOD cleanup_finalize.
-
-
 *  " Log a message indicating cleanup finalization
 *  APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
 *  <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
 *                               number   = '998'
-*                               severity = if_abap_behv_message=>severity-info
-*                               v1       = 'Cleanup finalization complete.' ).
+*                               severity = if_abap_behv_message=>severity-info ).
 *
 *  " Clear any remaining temporary data
 *  CLEAR create.
@@ -1271,8 +1718,5 @@ CLASS lsc_ZPRU_PURCORDERHDR_TP IMPLEMENTATION.
 *  CLEAR delete.
 *
 *  " Additional finalization logic can be added here if needed
-
-
-
   ENDMETHOD.
 ENDCLASS.

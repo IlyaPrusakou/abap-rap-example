@@ -22,10 +22,10 @@ INTERFACE zpru_if_m_po
              END OF cs_command.
 
   CONSTANTS: BEGIN OF cs_supplier,
-               sup1 TYPE char10 VALUE `SUP1`,
-               sup2 TYPE char10 VALUE `SUP2`,
-               sup3 TYPE char10 VALUE `SUP3`,
-               sup4 TYPE char10 VALUE `SUP4`,
+               sup1        TYPE char10 VALUE `SUP1`,
+               sup2        TYPE char10 VALUE `SUP2`,
+               sup3        TYPE char10 VALUE `SUP3`,
+               sup4        TYPE char10 VALUE `SUP4`,
                banned_sup5 TYPE char10 VALUE `BANSUP5`, " used in interface BDEF as managed instance filter
                banned_sup6 TYPE char10 VALUE `BANSUP6`, " used in projection BDEF as managed instance filter
              END OF cs_supplier.
@@ -47,6 +47,36 @@ INTERFACE zpru_if_m_po
                stockpile1 TYPE char20 VALUE 'STOCKPILE1',
                bulky      TYPE char20 VALUE 'BULKY',
              END OF cs_whs_location.
+
+  CONSTANTS: BEGIN OF cs_buyer,
+               buy1 TYPE char10 VALUE 'BUY1',
+               buy2 TYPE char10 VALUE 'BUY2',
+               buy3 TYPE char10 VALUE 'BUY3',
+               buy4 TYPE char10 VALUE 'BUY4',
+               buy5 TYPE char10 VALUE 'BUY5',
+             END OF cs_buyer.
+
+  CONSTANTS: BEGIN OF cs_buyer_names,
+               buy1 TYPE char50 VALUE 'BUY1 NAME',
+               buy2 TYPE char50 VALUE 'BUY2 NAME',
+               buy3 TYPE char50 VALUE 'BUY3 NAME',
+               buy4 TYPE char50 VALUE 'BUY4 NAME',
+               buy5 TYPE char50 VALUE 'BUY5 NAME',
+             END OF cs_buyer_names.
+
+  CONSTANTS: BEGIN OF cs_SUPPLIER_names,
+               sup1        TYPE char50 VALUE 'SUP1 NAME',
+               sup2        TYPE char50 VALUE 'SUP2 NAME',
+               sup3        TYPE char50 VALUE 'SUP3 NAME',
+               sup4        TYPE char50 VALUE 'SUP4 NAME',
+               banned_sup5 TYPE char50 VALUE 'BANSUP5 NAME',
+               banned_sup6 TYPE char50 VALUE 'BANSUP6 NAME',
+             END OF cs_SUPPLIER_names.
+
+  CONSTANTS: BEGIN OF cs_payment_methods,
+               advance TYPE char20 VALUE 'ADVANCE',
+               post    TYPE char20 VALUE 'POST',
+             END OF cs_payment_methods.
 
   TYPES ts_getstatushistory_key   TYPE STRUCTURE FOR FUNCTION IMPORT zpru_purcorderhdr_tp\\ordertp~getstatushistory.
   TYPES ts_getstatushistory_res   TYPE STRUCTURE FOR FUNCTION RESULT zpru_purcorderhdr_tp\\ordertp~getstatushistory.
