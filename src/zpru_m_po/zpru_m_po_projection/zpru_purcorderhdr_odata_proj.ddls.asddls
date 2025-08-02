@@ -1,9 +1,10 @@
 @AccessControl.authorizationCheck: #NOT_REQUIRED
 @EndUserText.label: 'Projection for ODATA Service Order'
 @Metadata.ignorePropagatedAnnotations: true
+@Metadata.allowExtensions: true
 define root view entity Zpru_PurcOrderHdr_ODATA_Proj
   provider contract transactional_query
-  as projection on Zpru_PurcOrderHdr_ODATA_Int
+  as projection on Zpru_PurcOrderHdr_tp
 {
   key purchaseOrderId,
       orderDate,

@@ -1,0 +1,153 @@
+@Metadata.layer: #CORE
+@UI: { headerInfo: { typeNamePlural: 'List Report - Purchase Orders Items',
+                     typeName: 'Purchase Order Item',
+                     title: { value: 'itemId' } } }
+annotate entity Zpru_PurcOrderItem_ODATA_Proj with
+{
+
+  // Facets start
+
+  @UI.facet: [
+        // Facet 1 - Parent (collection) for Fieldgroup 1 and Fieldgroup 2
+              { id:              'Facet1-ID',
+                type:            #COLLECTION,
+                label:           'Order Item Details',
+                position:        10 },
+
+        // Facet for Fieldgroup 1 - nested inside Facet 1
+
+              { id:              'Fieldgroup1-ID',
+                type:            #FIELDGROUP_REFERENCE,
+                label:           'Main Item Data',
+                parentId:        'Facet1-ID',
+                targetQualifier: 'Fieldgroup1',
+                position:         10 },
+
+        // Facet for Fieldgroup 2 - nested inside Facet 1
+
+              { id:              'Fieldgroup2-ID',
+                type:            #FIELDGROUP_REFERENCE,
+                label:           'Transactional Data',
+                parentId:        'Facet1-ID',
+                targetQualifier: 'Fieldgroup2',
+                position:         20 },
+
+        // Facet for Fieldgroup 3 - nested inside Facet 1
+
+              { id:              'Fieldgroup3-ID',
+                type:            #FIELDGROUP_REFERENCE,
+                label:           'Administrative Data',
+                parentId:        'Facet1-ID',
+                targetQualifier: 'Fieldgroup3',
+                position:         20 }
+
+              ]
+
+  // Facets end
+
+
+  @UI.selectionField: [ { position: 10 } ]
+  @UI: { lineItem:       [ { position: 10 }, { type: #FOR_ACTION, dataAction: 'markAsUrgent', label: 'Mark As Urgent' } ],
+         identification: [ { position: 10 } ],
+         fieldGroup:     [ { qualifier: 'Fieldgroup1',
+                             position: 10 } ] }
+  @EndUserText.label: 'Item ID'
+  itemId;
+  @UI.selectionField: [ { position: 20 } ]
+  @UI: { lineItem:       [ { position: 20 } ],
+         identification: [ { position: 20 } ],
+         fieldGroup:     [ { qualifier: 'Fieldgroup1',
+                             position: 20 } ] }
+  @EndUserText.label: 'Order'
+  purchaseOrderId;
+  @UI: { lineItem:       [ { position: 30 } ],
+         identification: [ { position: 30 } ],
+         fieldGroup:     [ { qualifier: 'Fieldgroup1',
+                             position: 30 } ] }
+  @EndUserText.label: 'Item Number'
+  itemNumber;
+  @UI.selectionField: [ { position: 40 } ]
+  @UI: { lineItem:       [ { position: 40 } ],
+         identification: [ { position: 40 } ],
+         fieldGroup:     [ { qualifier: 'Fieldgroup1',
+                             position: 40 } ] }
+  @EndUserText.label: 'Product ID'
+  productId;
+  @UI: { lineItem:       [ { position: 50 } ],
+         identification: [ { position: 50 } ],
+         fieldGroup:     [ { qualifier: 'Fieldgroup1',
+                             position: 50 } ] }
+  @EndUserText.label: 'Product Name'
+  productName;
+  @UI: { lineItem:       [ { position: 60 } ],
+         identification: [ { position: 60 } ],
+         fieldGroup:     [ { qualifier: 'Fieldgroup2',
+                             position: 60 } ] }
+  @EndUserText.label: 'Quantity'
+  quantity;
+  @UI: { lineItem:       [ { position: 70 } ],
+         identification: [ { position: 70 } ],
+         fieldGroup:     [ { qualifier: 'Fieldgroup2',
+                             position: 70 } ] }
+  @EndUserText.label: 'Price'
+  unitPrice;
+  @UI: { lineItem:       [ { position: 80 } ],
+         identification: [ { position: 80 } ],
+         fieldGroup:     [ { qualifier: 'Fieldgroup2',
+                             position: 80 } ] }
+  @EndUserText.label: 'Total Price'
+  totalPrice;
+  @UI.selectionField: [ { position: 90 } ]
+  @UI: { lineItem:       [ { position: 90 } ],
+         identification: [ { position: 90 } ],
+         fieldGroup:     [ { qualifier: 'Fieldgroup2',
+                             position: 90 } ] }
+  @EndUserText.label: 'Delivery Date'
+  deliveryDate;
+  @UI.selectionField: [ { position: 100 } ]
+  @UI: { lineItem:       [ { position: 100 } ],
+         identification: [ { position: 100 } ],
+         fieldGroup:     [ { qualifier: 'Fieldgroup2',
+                             position: 100 } ] }
+  @EndUserText.label: 'Warehouse Location'
+  warehouseLocation;
+  @UI: { lineItem:       [ { position: 110 } ],
+         identification: [ { position: 110 } ],
+         fieldGroup:     [ { qualifier: 'Fieldgroup2',
+                             position: 120 } ] }
+  @EndUserText.label: 'Currency'
+  itemCurrency;
+  @Consumption.hidden: true
+  isUrgent;
+  @UI.selectionField: [ { position: 120 } ]
+  @UI: { lineItem:       [ { position: 120 } ],
+         identification: [ { position: 120 } ],
+         fieldGroup:     [ { qualifier: 'Fieldgroup3',
+                             position: 120 } ] }
+  @EndUserText.label: 'Create By'
+  createdBy;
+  @UI.selectionField: [ { position: 130 } ]
+  @UI: { lineItem:       [ { position: 130 } ],
+         identification: [ { position: 130 } ],
+         fieldGroup:     [ { qualifier: 'Fieldgroup3',
+                             position: 130 } ] }
+  @EndUserText.label: 'Create On'
+  createOn;
+  @UI.selectionField: [ { position: 140 } ]
+  @UI: { lineItem:       [ { position: 140 } ],
+         identification: [ { position: 140 } ],
+         fieldGroup:     [ { qualifier: 'Fieldgroup3',
+                             position: 140 } ] }
+  @EndUserText.label: 'Changed By'
+  changedBy;
+  @UI.selectionField: [ { position: 150 } ]
+  @UI: { lineItem:       [ { position: 150 } ],
+         identification: [ { position: 150 } ],
+         fieldGroup:     [ { qualifier: 'Fieldgroup3',
+                             position: 150 } ] }
+  @EndUserText.label: 'Changed On'
+  changedOn;
+  @Consumption.hidden: true
+  isWarehouseLocationHidden;
+
+}

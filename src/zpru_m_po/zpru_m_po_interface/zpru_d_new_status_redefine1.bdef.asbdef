@@ -1,10 +1,12 @@
 abstract;
 strict ( 2 );
 with hierarchy;
+extensible;
 
 define behavior for Zpru_D_New_Status_Redefine1 alias statusRedefine1
+extensible
 {
-  mapping for zpru_d_new_status
+ deep mapping for zpru_d_new_status corresponding extensible
     {
       newStatus1 = newStatus;
     }

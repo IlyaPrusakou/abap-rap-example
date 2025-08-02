@@ -1,8 +1,9 @@
 @AccessControl.authorizationCheck: #NOT_REQUIRED
 @EndUserText.label: 'Projection for ODATA Service Items'
 @Metadata.ignorePropagatedAnnotations: true
+@Metadata.allowExtensions: true
 define view entity Zpru_PurcOrderItem_ODATA_Proj 
-as projection on Zpru_PurcOrderItem_ODATA_Int
+as projection on Zpru_PurcOrderItem_tp
 {
     key itemId,
     key purchaseOrderId,

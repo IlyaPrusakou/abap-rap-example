@@ -22,13 +22,14 @@ use etag
 
   use action checkOrder;
   use action sendOrderStatisticToAzure;
-  use action ( precheck ) ChangeStatus; // precheck must be implemented on ABP projection
+  use action ( precheck ) ChangeStatus deep parameter Zpru_D_New_Status_Redefine1; // redefined parameter; // precheck must be implemented on ABP projection
   use action createFromTemplate;
   use function getMajorSupplier;
-  //  use function getStatusHistory; // instead exposition I've defined my owm function version
+  //  use function getStatusHistory deep result ZPRU_D_HistoryRoot_Redefine1; // redefined result // instead exposition I've defined my owm function version
 
-//  action sendToIDOC deep table parameter Zpru_PurcOrderHdr_Abstract; // completly new action on projection with deep nested parameter
-//  function getStatusHistory deep result [0..*] ZPRU_D_HistoryRoot;
+  //  action sendToIDOC deep table parameter Zpru_PurcOrderHdr_Abstract; // completly new action on projection with deep nested parameter
+  //  function getStatusHistory deep result [0..*] ZPRU_D_HistoryRoot;
+  use function getAllItems result entity ZPRU_PURCORDERITEM_ODATA_PROJ; // projected result
 
 }
 

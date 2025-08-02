@@ -1,7 +1,7 @@
 interface;
-extensible;
+//extensible;
 with managed instance filter; // where cond in root cds will be evaluated for EML and Odata requests
-use draft;
+//use draft; Internal API WITHOUT DRAFT
 
 define behavior for Zpru_PurcOrderHdr_ODATA_Int alias OrderInt
 
@@ -21,15 +21,10 @@ define behavior for Zpru_PurcOrderHdr_ODATA_Int alias OrderInt
   use function getStatusHistory deep result ZPRU_D_HistoryRoot_Redefine1; // redefined result
   use function getAllItems result entity Zpru_PurcOrderItem_ODATA_Int; // projected result
 
-  use action Discard;
-  use action Activate;
-  use action Resume;
-  use action Edit;
-  use action Prepare;
 
   use event orderCreated deep parameter Zpru_PurcOrderHdr_Abs_Redefine; // redefined event parameter
 
-  use association _items_tp { create; with draft; }
+  use association _items_tp { create; }
 }
 
 define behavior for Zpru_PurcOrderItem_ODATA_Int alias ItemInt
@@ -40,5 +35,5 @@ define behavior for Zpru_PurcOrderItem_ODATA_Int alias ItemInt
   use action markAsUrgent;
   use function getInventoryStatus;
 
-  use association _header_tp { with draft; }
+  use association _header_tp { }
 }

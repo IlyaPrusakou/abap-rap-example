@@ -135,7 +135,7 @@ changedocuments dependent by _header_tp
 {
 
   field ( readonly ) totalPrice, warehouseLocation, itemNumber;
-  field ( readonly : update ) purchaseOrderId, itemId, productId, itemCurrency;
+  field ( readonly : update ) purchaseOrderId, itemId, productId, itemCurrency, unitPrice;
   field ( mandatory : create ) productId, quantity, unitPrice;
   update;
   delete;
