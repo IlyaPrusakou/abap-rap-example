@@ -40,11 +40,20 @@ CLASS zpru_cl_utility_function DEFINITION
       IMPORTING iv_buyer_id          TYPE char10
       RETURNING VALUE(rv_buyer_name) TYPE char50.
 
+    CLASS-METHODS send_to_idoc
+      IMPORTING
+        iv_idoc_adress TYPE char20
+        is_po          TYPE  zpru_if_m_po=>ts_abstract_root_bo.
 
 ENDCLASS.
 
 
 CLASS zpru_cl_utility_function IMPLEMENTATION.
+
+  METHOD send_to_idoc.
+
+
+  ENDMETHOD.
 
   METHOD get_buyer_name.
     CASE iv_buyer_id.

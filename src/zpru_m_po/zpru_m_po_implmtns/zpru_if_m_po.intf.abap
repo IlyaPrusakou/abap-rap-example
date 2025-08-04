@@ -84,5 +84,7 @@ INTERFACE zpru_if_m_po
   TYPES ts_order_read_res         TYPE STRUCTURE FOR READ RESULT zpru_purcorderhdr_tp\\ordertp.
   TYPES ts_approved_suppliers     TYPE zpru_d_approvedsupplier.
   TYPES tt_createfromtemplate_key TYPE TABLE FOR ACTION IMPORT zpru_purcorderhdr_tp\\ordertp~createfromtemplate.
+  TYPES tt_abstract_root_bo       TYPE TABLE FOR HIERARCHY Zpru_PurcOrderHdr_Abstract\\orderAbstract.
+  TYPES ts_abstract_root_bo       TYPE STRUCTURE FOR HIERARCHY Zpru_PurcOrderHdr_Abstract\\orderAbstract.
 
 ENDINTERFACE.

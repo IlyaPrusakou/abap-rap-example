@@ -33,7 +33,6 @@ INTERFACE lif_business_object.
   TYPES tt_abstract_root_bo2           TYPE TABLE FOR HIERARCHY Zpru_PurcOrderHdr_Abs_Redefine\\orderAbstract3.
   TYPES tt_createpo_event_in           TYPE TABLE FOR EVENT Zpru_PurcOrderHdr_tp~orderCreated.
 
-
   CONSTANTS: BEGIN OF cs_state_area,
                BEGIN OF order,
                  checkDates          TYPE string VALUE `checkdates`,

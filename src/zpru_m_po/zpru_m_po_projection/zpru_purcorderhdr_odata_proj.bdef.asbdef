@@ -1,6 +1,6 @@
 projection implementation in class zbp_pru_purcorderhdr_odata_pro unique;
 strict ( 2 );
-with managed instance filter; // combined with interface filter
+with managed instance filter;
 use draft;
 
 define behavior for Zpru_PurcOrderHdr_ODATA_Proj alias OrderProj
@@ -25,11 +25,11 @@ use etag
   use action ( precheck ) ChangeStatus deep parameter Zpru_D_New_Status_Redefine1; // redefined parameter; // precheck must be implemented on ABP projection
   use action createFromTemplate;
   use function getMajorSupplier;
-  //  use function getStatusHistory deep result ZPRU_D_HistoryRoot_Redefine1; // redefined result // instead exposition I've defined my owm function version
+  action sendToIDOC parameter ZPRU_D_IDOC_ADRESS;
 
-  //  action sendToIDOC deep table parameter Zpru_PurcOrderHdr_Abstract; // completly new action on projection with deep nested parameter
-  //  function getStatusHistory deep result [0..*] ZPRU_D_HistoryRoot;
   use function getAllItems result entity ZPRU_PURCORDERITEM_ODATA_PROJ; // projected result
+
+  static function calculateOpenOrderValue parameter Zpru_D_SupplierID result [0..1] Zpru_D_OpenOrderTotalValue;
 
 }
 
