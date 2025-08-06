@@ -1,4 +1,4 @@
-@AbapCatalog.viewEnhancementCategory: [#NONE]
+@AbapCatalog.viewEnhancementCategory: [ #NONE ]
 @AccessControl.authorizationCheck: #NOT_REQUIRED
 @EndUserText.label: 'Purchase Order'
 @Metadata.ignorePropagatedAnnotations: true
@@ -7,6 +7,7 @@
     sizeCategory: #S,
     dataClass: #MIXED
 }
+
 define view entity Zpru_PurcOrderHdr
   as select from zpru_purc_order
   association [1..*] to Zpru_PurcOrderItem as _items on $projection.purchaseOrderId = _items.purchaseOrderId

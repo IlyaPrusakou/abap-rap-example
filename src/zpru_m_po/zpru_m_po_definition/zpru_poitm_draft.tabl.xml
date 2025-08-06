@@ -195,6 +195,14 @@
      <COMPTYPE>S</COMPTYPE>
      <GROUPNAME>%ADMIN</GROUPNAME>
     </DD03P>
+    <DD03P>
+     <FIELDNAME>.INCLUDE</FIELDNAME>
+     <ADMINFIELD>0</ADMINFIELD>
+     <PRECFIELD>ZPRU_S_EXT_INCL_ITEM</PRECFIELD>
+     <MASK>      S</MASK>
+     <DDTEXT>Purchase Order Item Extension Structure</DDTEXT>
+     <COMPTYPE>S</COMPTYPE>
+    </DD03P>
    </DD03P_TABLE>
   </asx:values>
  </asx:abap>

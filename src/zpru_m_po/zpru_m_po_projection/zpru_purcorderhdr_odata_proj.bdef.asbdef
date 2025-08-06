@@ -6,7 +6,7 @@ use draft;
 define behavior for Zpru_PurcOrderHdr_ODATA_Proj alias OrderProj
 use etag
 {
-  field ( modify ) isShippingMethodHidden; // augment operation for virtual element
+  field ( modify ) isCreateShadowOrder; // augment operation for virtual element
 
   use create ( augment, precheck ); // augment and precheck must be implemented ABP for projection
   use update;

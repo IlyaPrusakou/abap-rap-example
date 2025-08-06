@@ -1,8 +1,20 @@
 @AccessControl.authorizationCheck: #NOT_REQUIRED
 @EndUserText.label: 'Interface for ODATA Service Items'
 @Metadata.ignorePropagatedAnnotations: true
+
+@AbapCatalog.extensibility: {
+  extensible: true,
+  elementSuffix: 'ZPU',
+  allowNewDatasources: false,
+  dataSources: ['Item'],
+  quota: {
+    maximumFields: 500,
+    maximumBytes: 50000
+  }
+}
+
 define view entity Zpru_PurcOrderItem_ODATA_Int
-  as projection on Zpru_PurcOrderItem_tp
+  as projection on Zpru_PurcOrderItem_tp as Item
 {
   key itemId,
   key purchaseOrderId,

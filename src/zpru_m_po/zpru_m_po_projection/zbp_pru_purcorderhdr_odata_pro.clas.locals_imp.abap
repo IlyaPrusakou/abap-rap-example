@@ -20,6 +20,12 @@ ENDCLASS.
 
 CLASS lhc_OrderTP IMPLEMENTATION.
   METHOD augment_create.
+
+
+
+
+
+
   ENDMETHOD.
 
   METHOD precheck_create.
@@ -132,5 +138,45 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD calculateOpenOrderValue.
+    DATA lv_total_amount TYPE p LENGTH 15 DECIMALS 2.
+
+    IF keys IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    SELECT purchaseOrderId FROM Zpru_PurcOrderHdr_tp
+      FOR ALL ENTRIES IN @keys
+      WHERE supplierId = @keys-%param-supplierid
+      INTO TABLE @DATA(lt_po_for_suppliers).
+
+    IF lt_po_for_suppliers IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF Zpru_PurcOrderHdr_tp
+         ENTITY OrderTP
+         FIELDS ( supplierId
+                  totalamount
+                  headerCurrency )
+         WITH VALUE #( FOR <ls_k>
+                       IN lt_po_for_suppliers
+                       ( %tky-purchaseOrderId = <ls_k>-purchaseOrderId ) )
+         RESULT DATA(lt_read_result).
+
+    LOOP AT lt_read_result ASSIGNING FIELD-SYMBOL(<ls_supplier>)
+         GROUP BY <ls_supplier>-supplierId
+         ASSIGNING FIELD-SYMBOL(<lv_supplier>).
+
+      lv_total_amount = 0.
+      LOOP AT GROUP <lv_supplier> ASSIGNING FIELD-SYMBOL(<ls_member>).
+        lv_total_amount = lv_total_amount + <ls_member>-totalAmount.
+      ENDLOOP.
+
+      APPEND INITIAL LINE TO result ASSIGNING FIELD-SYMBOL(<ls_result>).
+      <ls_result>-%param-supplierId  = <lv_supplier>.
+      <ls_result>-%param-totalAmount = lv_total_amount.
+      <ls_result>-%param             = 'USD'.
+
+    ENDLOOP.
   ENDMETHOD.
 ENDCLASS.

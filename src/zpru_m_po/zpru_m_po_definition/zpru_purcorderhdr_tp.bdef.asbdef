@@ -13,7 +13,7 @@ with draft;
 
 define behavior for Zpru_PurcOrderHdr_tp alias OrderTP
 persistent table zpru_purc_order
-draft table zpru_po_draft
+draft table zpru_po_draft query ZPRU_PURCORDER_DRAFT_Q
 lock master unmanaged
 total etag lastChanged
 authorization master ( global, instance )

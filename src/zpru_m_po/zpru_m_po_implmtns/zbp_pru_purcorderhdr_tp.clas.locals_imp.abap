@@ -570,32 +570,25 @@ CLASS lhc_OrderTP IMPLEMENTATION.
 
     LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_key>).
 
-      CASE <ls_key>-%cid.
-        WHEN zpru_if_m_po=>cs_command-sendtoazure.
-          SELECT COUNT( * ) FROM Zpru_PurcOrderHdr_tp
-            INTO @lv_count.
-          IF sy-subrc <> 0.
-            APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
-            <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
-                                         number   = '007'
-                                         severity = if_abap_behv_message=>severity-error ).
-          ENDIF.
+      SELECT COUNT( * ) FROM Zpru_PurcOrderHdr_tp
+        INTO @lv_count.
+      IF sy-subrc <> 0.
+        APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+        <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                     number   = '007'
+                                     severity = if_abap_behv_message=>severity-error ).
+      ENDIF.
 
-          DATA(lv_error) = zpru_cl_utility_function=>send_stat_to_azure( iv_servername   = <ls_key>-%param-serverName
-                                                                         iv_serveradress = <ls_key>-%param-serverAdress
-                                                                         iv_statistic    = lv_count ).
+      DATA(lv_error) = zpru_cl_utility_function=>send_stat_to_azure( iv_servername   = <ls_key>-%param-serverName
+                                                                     iv_serveradress = <ls_key>-%param-serverAdress
+                                                                     iv_statistic    = lv_count ).
 
-          IF lv_error = abap_true.
-            <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
-                                         number   = '008'
-                                         severity = if_abap_behv_message=>severity-error ).
-          ENDIF.
+      IF lv_error = abap_true.
+        <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                     number   = '008'
+                                     severity = if_abap_behv_message=>severity-error ).
+      ENDIF.
 
-        WHEN OTHERS.
-          <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
-                                       number   = '009'
-                                       severity = if_abap_behv_message=>severity-error ).
-      ENDCASE.
     ENDLOOP.
   ENDMETHOD.
 

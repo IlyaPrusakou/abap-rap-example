@@ -1,9 +1,21 @@
 @AccessControl.authorizationCheck: #NOT_REQUIRED
 @EndUserText.label: 'Interface for ODATA Service'
 @Metadata.ignorePropagatedAnnotations: true
+
+@AbapCatalog.extensibility: {
+  extensible: true,
+  elementSuffix: 'ZPR',
+  allowNewDatasources: false,
+  dataSources: ['PurchaseOrder'],
+  quota: {
+    maximumFields: 500,
+    maximumBytes: 50000
+  }
+}
+
 define root view entity Zpru_PurcOrderHdr_ODATA_Int
   provider contract transactional_interface
-  as projection on Zpru_PurcOrderHdr_tp
+  as projection on Zpru_PurcOrderHdr_tp as PurchaseOrder
 {
   key purchaseOrderId,
       orderDate,

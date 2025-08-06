@@ -7,9 +7,10 @@
     sizeCategory: #S,
     dataClass: #MIXED
 }
+
 define view entity Zpru_PurcOrderItem
   as select from zpru_po_item
-  association [1..1] to Zpru_PurcOrderHdr as _header on $projection.purchaseOrderId = _header.purchaseOrderId
+  association [1..1] to Zpru_PurcOrderHdr    as _header    on  $projection.purchaseOrderId = _header.purchaseOrderId
 {
   key item_id            as itemId,
   key purchase_order_id  as purchaseOrderId,
@@ -25,9 +26,9 @@ define view entity Zpru_PurcOrderItem
       warehouse_location as warehouseLocation,
       item_currency      as itemCurrency,
       is_urgent          as isUrgent,
-      created_by        as createdBy,
-      create_on         as createOn,
-      changed_by        as changedBy,
-      changed_on        as changedOn,      
+      created_by         as createdBy,
+      create_on          as createOn,
+      changed_by         as changedBy,
+      changed_on         as changedOn,
       _header // Association to Header Table
 }
