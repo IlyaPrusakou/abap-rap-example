@@ -16,7 +16,8 @@
   quota: {
     maximumFields: 500,
     maximumBytes: 50000
-  }
+  },
+  allowNewCompositions: true
 }
 
 define root view entity Zpru_PurcOrderHdr_tp

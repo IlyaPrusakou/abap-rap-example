@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_DDLS" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <DDLS>
+    <DDLNAME>ZPRU_ITEM_TP_CUSTOMER</DDLNAME>
+    <DDLANGUAGE>E</DDLANGUAGE>
+    <PARENTNAME>ZPRU_PURCORDERITEM_TP</PARENTNAME>
+    <DDTEXT>Extension Transactional Item View</DDTEXT>
+    <SOURCE_TYPE>X</SOURCE_TYPE>
+   </DDLS>
+  </asx:values>
+ </asx:abap>
+</abapGit>

@@ -17,15 +17,15 @@
      <BIND_TYPE_VERSION>V4</BIND_TYPE_VERSION>
      <SERVICES>
       <item>
-       <SERVICE_NAME>ZPRU_PURCORDERHDR_ODATA</SERVICE_NAME>
+       <SERVICE_NAME>ZPRU_PURCORDERHDR_WEB_API</SERVICE_NAME>
        <SERVICE_CONTENT>
         <item>
          <SERVICE_VERSION>0001</SERVICE_VERSION>
          <RELEASE_STATE>NOT_RELEASED</RELEASE_STATE>
          <SRVD_REF>
-          <URI>/sap/bc/adt/ddic/srvd/sources/zpru_purcorderhdr_odata</URI>
+          <URI>/sap/bc/adt/ddic/srvd/sources/zpru_purcorderhdr_web_api</URI>
           <TYPE>SRVD/SRV</TYPE>
-          <NAME>ZPRU_PURCORDERHDR_ODATA</NAME>
+          <NAME>ZPRU_PURCORDERHDR_WEB_API</NAME>
          </SRVD_REF>
          <BIND_TYPE_DATA>
           <CONTENT>

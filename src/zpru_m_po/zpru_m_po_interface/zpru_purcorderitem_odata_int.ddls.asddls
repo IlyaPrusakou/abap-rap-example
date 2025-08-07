@@ -10,7 +10,8 @@
   quota: {
     maximumFields: 500,
     maximumBytes: 50000
-  }
+  },
+  allowNewCompositions: true
 }
 
 define view entity Zpru_PurcOrderItem_ODATA_Int

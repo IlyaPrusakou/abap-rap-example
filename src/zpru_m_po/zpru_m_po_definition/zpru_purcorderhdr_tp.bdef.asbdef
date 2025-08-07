@@ -125,7 +125,7 @@ changedocuments master ( ZPRU_PURC_ORDER )
 }
 define behavior for Zpru_PurcOrderItem_tp alias ItemTP
 persistent table zpru_po_item
-draft table zpru_poitm_draft
+draft table zpru_poitm_draft query ZPRU_ORDERITEM_DRAFT_Q
 lock dependent by _header_tp
 authorization dependent by _header_tp
 etag dependent by _header_tp

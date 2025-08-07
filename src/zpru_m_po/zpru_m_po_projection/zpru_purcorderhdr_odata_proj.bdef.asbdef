@@ -2,9 +2,11 @@ projection implementation in class zbp_pru_purcorderhdr_odata_pro unique;
 strict ( 2 );
 with managed instance filter;
 use draft;
+extensible;
 
 define behavior for Zpru_PurcOrderHdr_ODATA_Proj alias OrderProj
 use etag
+extensible
 {
   field ( modify ) isCreateShadowOrder; // augment operation for virtual element
 
@@ -34,6 +36,7 @@ use etag
 }
 
 define behavior for Zpru_PurcOrderItem_ODATA_Proj alias ItemProj
+extensible
 {
   use update;
   use delete;

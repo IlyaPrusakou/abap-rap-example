@@ -1,0 +1,10 @@
+extension using interface zpru_purcorderhdr_odata_int
+implementation in class zbp_pru_purcorderhdr_ext_int unique;
+
+extend behavior for OrderInt
+{
+}
+
+extend behavior for ItemInt
+{
+}
