@@ -10,7 +10,8 @@
 
 define view entity Zpru_PurcOrderHdr
   as select from zpru_purc_order
-  association [1..*] to Zpru_PurcOrderItem as _items on $projection.purchaseOrderId = _items.purchaseOrderId
+  association of exact one to many Zpru_PurcOrderItem as _items on $projection.purchaseOrderId = _items.purchaseOrderId
+  association of exact one to many Zpru_PurcOrderHdr_T as _text on $projection.purchaseOrderId = _text.PurchaseOrderId
 {
   key purchase_order_id as purchaseOrderId,
       order_date        as orderDate,
@@ -31,5 +32,6 @@ define view entity Zpru_PurcOrderHdr
       changed_by        as changedBy,
       changed_on        as changedOn,
       last_changed      as lastChanged,
-      _items
+      _items,
+      _text
 }

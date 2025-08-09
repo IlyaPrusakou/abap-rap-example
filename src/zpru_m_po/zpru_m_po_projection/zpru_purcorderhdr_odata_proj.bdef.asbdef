@@ -8,13 +8,15 @@ define behavior for Zpru_PurcOrderHdr_ODATA_Proj alias OrderProj
 use etag
 extensible
 {
-  field ( modify ) isCreateShadowOrder; // augment operation for virtual element
+  field ( modify ) orderDescription; // augment operation for virtual element (opdatable virtual element)
+
 
   use create ( augment, precheck ); // augment and precheck must be implemented ABP for projection
-  use update;
+  use update ( augment );
   use delete;
 
   use association _items_tp { create ( augment, precheck ); with draft; } // augment and precheck must be implemented on ABP projection
+  use association _text_tp { create; with draft; }
 
   use action Edit;
   use action Activate;
@@ -46,6 +48,11 @@ extensible
   use action markAsUrgent;
   use function getInventoryStatus;
 
-  field ( modify ) isWarehouseLocationHidden; // augment operation for virtual element
+}
 
+define behavior for Zpru_PurcOrderHdr_T_PROJ alias TextProj
+{
+  use update;
+  use delete;
+  use association _header_tp { with draft; }
 }

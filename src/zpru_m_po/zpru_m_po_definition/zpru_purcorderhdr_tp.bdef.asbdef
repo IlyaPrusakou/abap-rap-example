@@ -32,6 +32,7 @@ changedocuments master ( ZPRU_PURC_ORDER )
   update ( precheck );
   delete ( precheck );
   association _items_tp { create; with draft; }
+  association _text_tp { create( precheck ); with draft; } // there are example implementation for precheck
 
   draft action Discard with additional implementation;
   draft action Activate with additional implementation optimized;
@@ -183,5 +184,27 @@ changedocuments dependent by _header_tp
       quantity     = quantity2 control quantity4;
       totalPrice   = total_Price2 control total_Price4;
       unitPrice    = unit_Price2 control unit_Price4;
+    }
+}
+
+define behavior for Zpru_PurcOrderHdr_T_TP alias TextTP
+persistent table zpru_purc_ordert
+draft table zpru_pot_draft
+lock dependent by _header_tp
+authorization dependent by _header_tp
+etag dependent by _header_tp
+late numbering
+{
+
+  update;
+  delete;
+  association _header_tp { with draft; }
+  field ( readonly : update ) purchaseOrderId, Language;
+
+  mapping for zpru_purc_ordert corresponding
+    {
+      PurchaseOrderId = purchase_order_id;
+      Language        = language;
+      TextContent     = text_content;
     }
 }

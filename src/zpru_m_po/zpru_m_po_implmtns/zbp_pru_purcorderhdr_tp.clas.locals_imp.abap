@@ -126,6 +126,8 @@ CLASS lhc_OrderTP DEFINITION INHERITING FROM cl_abap_behavior_handler.
       IMPORTING keys FOR ordertp~checkbuyer.
     METHODS calctotalamount FOR DETERMINE ON SAVE
       IMPORTING keys FOR ordertp~calctotalamount.
+    METHODS precheck_cba_text_tp FOR PRECHECK
+      IMPORTING entities FOR CREATE ordertp\_text_tp.
 
 ENDCLASS.
 
@@ -1126,6 +1128,105 @@ CLASS lhc_OrderTP IMPLEMENTATION.
            ENTITY OrderTP
            UPDATE FROM lt_order_update.
   ENDMETHOD.
+
+  METHOD precheck_cba_Text_tp.
+    DATA lt_text_read TYPE TABLE FOR READ RESULT Zpru_PurcOrderHdr_tp\\TextTP.
+
+    IF entities IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    LOOP AT entities ASSIGNING FIELD-SYMBOL(<ls_entity>).
+
+      CLEAR lt_text_read.
+      LOOP AT <ls_entity>-%target ASSIGNING FIELD-SYMBOL(<ls_TARGET>).
+
+        APPEND INITIAL LINE TO lt_text_read ASSIGNING FIELD-SYMBOL(<ls_text>).
+        <ls_text>-%is_draft       = <ls_TARGET>-%is_draft.
+        <ls_text>-purchaseorderid = <ls_TARGET>-purchaseOrderId.
+        <ls_text>-Language        = COND #( WHEN <ls_TARGET>-Language IS NOT INITIAL
+                                            THEN <ls_TARGET>-Language
+                                            ELSE sy-langu ).
+      ENDLOOP.
+
+      LOOP AT lt_text_read ASSIGNING FIELD-SYMBOL(<ls_group>)
+           GROUP BY ( purchaseOrderId = <ls_group>-purchaseOrderId
+                      Language        = <ls_group>-Language )
+           ASSIGNING FIELD-SYMBOL(<ls_text_group>).
+        DATA(lv_count) = 0.
+
+        LOOP AT GROUP <ls_text_group> TRANSPORTING NO FIELDS.
+          lv_count = lv_count + 1.
+        ENDLOOP.
+
+        IF lv_count > 1.
+          APPEND INITIAL LINE TO failed-ordertp ASSIGNING FIELD-SYMBOL(<ls_order_failed>).
+          <ls_order_failed>-%is_draft       = <ls_entity>-%is_draft.
+          <ls_order_failed>-%pid            = <ls_entity>-%pid.
+          <ls_order_failed>-purchaseorderid = <ls_entity>-purchaseorderid.
+          <ls_order_failed>-%fail-cause     = if_abap_behv=>cause-unspecific.
+          <ls_order_failed>-%assoc-_text_tp = if_abap_behv=>mk-on.
+
+          APPEND INITIAL LINE TO reported-ordertp ASSIGNING FIELD-SYMBOL(<ls_order_message>).
+          <ls_order_message>-%is_draft       = <ls_entity>-%is_draft.
+          <ls_order_message>-%pid            = <ls_entity>-%pid.
+          <ls_order_message>-purchaseorderid = <ls_entity>-purchaseOrderId.
+          <ls_order_message>-%msg            = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                                            number   = '014'
+                                                            severity = if_abap_behv_message=>severity-error ).
+          <ls_order_message>-%element-%assoc-_text_tp = if_abap_behv=>mk-on.
+        ENDIF.
+
+        SELECT COUNT( * ) FROM Zpru_PurcOrderHdr_T
+          WHERE PurchaseOrderId = @<ls_text_group>-purchaseorderid
+            AND Language        = @<ls_text_group>-Language
+          INTO @DATA(LV_COUNT_IN_db).
+
+        IF LV_COUNT_IN_db <> 0.
+          APPEND INITIAL LINE TO failed-ordertp ASSIGNING <ls_order_failed>.
+          <ls_order_failed>-%is_draft       = <ls_entity>-%is_draft.
+          <ls_order_failed>-%pid            = <ls_entity>-%pid.
+          <ls_order_failed>-purchaseorderid = <ls_entity>-purchaseorderid.
+          <ls_order_failed>-%fail-cause     = if_abap_behv=>cause-unspecific.
+          <ls_order_failed>-%assoc-_text_tp = if_abap_behv=>mk-on.
+
+          APPEND INITIAL LINE TO reported-ordertp ASSIGNING <ls_order_message>.
+          <ls_order_message>-%is_draft       = <ls_entity>-%is_draft.
+          <ls_order_message>-%pid            = <ls_entity>-%pid.
+          <ls_order_message>-purchaseorderid = <ls_entity>-purchaseOrderId.
+          <ls_order_message>-%msg            = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                                            number   = '015'
+                                                            severity = if_abap_behv_message=>severity-error ).
+          <ls_order_message>-%element-%assoc-_text_tp = if_abap_behv=>mk-on.
+        ENDIF.
+
+        SELECT COUNT( * ) FROM zpru_pot_draft
+          WHERE PurchaseOrderId = @<ls_text_group>-purchaseorderid
+            AND Language        = @<ls_text_group>-Language
+          INTO @DATA(zpru_pot_draft).
+
+        IF zpru_pot_draft <> 0.
+          APPEND INITIAL LINE TO failed-ordertp ASSIGNING <ls_order_failed>.
+          <ls_order_failed>-%is_draft       = <ls_entity>-%is_draft.
+          <ls_order_failed>-%pid            = <ls_entity>-%pid.
+          <ls_order_failed>-purchaseorderid = <ls_entity>-purchaseorderid.
+          <ls_order_failed>-%fail-cause     = if_abap_behv=>cause-unspecific.
+          <ls_order_failed>-%assoc-_text_tp = if_abap_behv=>mk-on.
+
+          APPEND INITIAL LINE TO reported-ordertp ASSIGNING <ls_order_message>.
+          <ls_order_message>-%is_draft       = <ls_entity>-%is_draft.
+          <ls_order_message>-%pid            = <ls_entity>-%pid.
+          <ls_order_message>-purchaseorderid = <ls_entity>-purchaseOrderId.
+          <ls_order_message>-%msg            = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                                            number   = '016'
+                                                            severity = if_abap_behv_message=>severity-error ).
+          <ls_order_message>-%element-%assoc-_text_tp = if_abap_behv=>mk-on.
+        ENDIF.
+
+      ENDLOOP.
+
+    ENDLOOP.
+  ENDMETHOD.
 ENDCLASS.
 
 
@@ -1545,12 +1646,39 @@ CLASS lsc_ZPRU_PURCORDERHDR_TP IMPLEMENTATION.
                                     %tky-purchaseOrderId = <ls_r>-%pre-%tmp-purchaseOrderId ) )
          LINK DATA(lt_link).
 
+    READ ENTITIES OF Zpru_PurcOrderHdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP BY \_text_tp
+         ALL FIELDS WITH VALUE #( FOR <ls_r>
+                                  IN mapped-ordertp
+                                  ( %tky-%pid            = <ls_r>-%pre-%pid
+                                    %tky-purchaseOrderId = <ls_r>-%pre-%tmp-purchaseOrderId ) )
+         LINK DATA(lt_link_text).
+
     lv_last_po_number = zpru_cl_utility_function=>get_last_po_number( ).
 
     LOOP AT mapped-ordertp ASSIGNING FIELD-SYMBOL(<ls_order>).
       lv_last_po_number = lv_last_po_number + 1.
       lv_last_po_char = lv_last_po_number.
       <ls_order>-%key-purchaseOrderId = |{ lv_last_po_char ALPHA = IN }|.
+
+      LOOP AT lt_link_text ASSIGNING FIELD-SYMBOL(<ls_link_text>)
+           USING KEY pid
+           WHERE     source-%pid            = <ls_order>-%pre-%pid
+                 AND source-purchaseOrderId = <ls_order>-%pre-%tmp-purchaseOrderId.
+
+        ASSIGN mapped-texttp[ %pre-%pid                 = <ls_link_text>-target-%pky-%pid
+                              %pre-%tmp-purchaseOrderId = <ls_link_text>-target-%pky-purchaseOrderId
+                              %pre-%tmp-Language        = <ls_link_text>-target-%pky-Language ] TO FIELD-SYMBOL(<ls_text_target>).
+        IF sy-subrc <> 0.
+          CONTINUE.
+        ENDIF.
+
+        <ls_text_target>-%key-purchaseOrderId = <ls_order>-%key-purchaseOrderId.
+        <ls_text_target>-%key-Language        = COND #( WHEN <ls_text_target>-%tmp-Language IS NOT INITIAL
+                                                        THEN <ls_text_target>-%tmp-Language
+                                                        ELSE sy-langu ).
+      ENDLOOP.
 
       DATA(lv_count) = 0.
       LOOP AT lt_link ASSIGNING FIELD-SYMBOL(<ls_link>)

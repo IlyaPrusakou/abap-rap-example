@@ -4,4 +4,5 @@ define service ZPRU_PURCORDERHDR_ODATA
   provider contracts odata_v4_ui, odata_v2_ui {
   expose Zpru_PurcOrderHdr_ODATA_Proj  as purchaseOrder;
   expose Zpru_PurcOrderItem_ODATA_Proj as purchaseItem;
+  expose Zpru_PurcOrderHdr_T_PROJ      as purchaseOrderText;
 }

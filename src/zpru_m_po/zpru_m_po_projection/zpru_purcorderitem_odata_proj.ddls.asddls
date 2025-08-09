@@ -39,10 +39,6 @@ as projection on Zpru_PurcOrderItem_tp as Item
     changedBy,
     changedOn,
     
-    @ObjectModel.virtualElementCalculatedBy: 'ABAP:ZPRU_CL_ITM_VIRT_ELEM_EXIT'
-    virtual isWarehouseLocationHidden : boole_d,
-    
-    
     /* Associations */
     _header_tp : redirected to parent Zpru_PurcOrderHdr_ODATA_Proj
 }

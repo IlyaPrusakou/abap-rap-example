@@ -92,6 +92,24 @@
      <MSGNR>013</MSGNR>
      <TEXT>Wrong buyer ID</TEXT>
     </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZPRU_PO</ARBGB>
+     <MSGNR>014</MSGNR>
+     <TEXT>Text already exists(one request)</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZPRU_PO</ARBGB>
+     <MSGNR>015</MSGNR>
+     <TEXT>Text already exists(active data base)</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZPRU_PO</ARBGB>
+     <MSGNR>016</MSGNR>
+     <TEXT>Text already exists(draft data base)</TEXT>
+    </T100>
    </T100>
   </asx:values>
  </asx:abap>

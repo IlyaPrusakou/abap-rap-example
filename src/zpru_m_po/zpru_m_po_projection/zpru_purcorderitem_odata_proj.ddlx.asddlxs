@@ -147,7 +147,5 @@ annotate entity Zpru_PurcOrderItem_ODATA_Proj with
                              position: 150 } ] }
   @EndUserText.label: 'Changed On'
   changedOn;
-  @Consumption.hidden: true
-  isWarehouseLocationHidden;
 
 }

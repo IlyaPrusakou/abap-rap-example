@@ -40,14 +40,14 @@ define root view entity Zpru_PurcOrderHdr_ODATA_Proj
       changedBy,
       changedOn,
       lastChanged,
+      _text_tp.TextContent as orderDescription : localized, //demonstrate text field, but it only read-only on UI
       
-      @ObjectModel.virtualElementCalculatedBy: 'ABAP:ZPRU_CL_PO_VIRT_ELEM_EXIT'
-      virtual isShippingMethodHidden : boole_d,
-      @ObjectModel.virtualElementCalculatedBy: 'ABAP:ZPRU_CL_PO_VIRT_ELEM_EXIT'
-      virtual isCreateShadowOrder : boole_d,      
+//      @ObjectModel.virtualElementCalculatedBy: 'ABAP:ZPRU_CL_PO_VIRT_ELEM_EXIT'
+//      virtual orderDescription : abap.string( 5000 ),      
       
       /* Associations */
-      _items_tp : redirected to composition child Zpru_PurcOrderItem_ODATA_Proj
+      _items_tp : redirected to composition child Zpru_PurcOrderItem_ODATA_Proj,
+      _text_tp : redirected to composition child Zpru_PurcOrderHdr_T_PROJ
 }
 where
   supplierId <> 'BANSUP6' // managed instance filter

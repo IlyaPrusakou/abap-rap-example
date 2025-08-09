@@ -54,7 +54,7 @@ annotate entity Zpru_PurcOrderHdr_ODATA_Proj with
   // Facets end
 
   @UI.selectionField: [ { position: 10 } ]
-  @UI: { lineItem:       [ { position: 10 }, 
+  @UI: { lineItem:       [ { position: 10 },
                            { type: #FOR_ACTION, dataAction: 'ChangeStatus', label: 'Change Status' },
                            { type: #FOR_ACTION, dataAction: 'checkOrder', label: 'Check Order' },
                            { type: #FOR_ACTION, dataAction: 'sendOrderStatisticToAzure', label: 'Send To Azure' },
@@ -161,9 +161,15 @@ annotate entity Zpru_PurcOrderHdr_ODATA_Proj with
                              position: 160 } ] }
   @EndUserText.label: 'Chaned On'
   changedOn;
+
+  @UI: { lineItem:       [ { position: 180 } ],
+         identification: [ { position: 180 } ],
+         fieldGroup:     [ { qualifier: 'Fieldgroup1',
+                             position: 180 } ] }
+  @EndUserText.label: 'Description'
+  orderDescription;
+
   @Consumption.hidden: true
   lastChanged;
-  @Consumption.hidden: true
-  isShippingMethodHidden;
 
 }
