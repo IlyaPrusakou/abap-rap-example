@@ -1562,7 +1562,8 @@ CLASS lhc_ItemTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD writeItemNumber.
-    DATA lt_item_update TYPE lif_business_object=>tt_item_update.
+    DATA lt_item_update    TYPE lif_business_object=>tt_item_update.
+    DATA lt_EXISTING_items TYPE TABLE FOR READ RESULT zpru_purcorderhdr_tp\\itemtp.
 
     IF keys IS INITIAL.
       APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
@@ -1587,13 +1588,46 @@ CLASS lhc_ItemTP IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    LOOP AT lt_items ASSIGNING FIELD-SYMBOL(<ls_instance>) GROUP BY <ls_instance>-%pidparent ASSIGNING FIELD-SYMBOL(<lv_po>).
+    READ ENTITIES OF zpru_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY ItemTP BY \_header_tp
+         ALL FIELDS
+         WITH VALUE #( FOR <ls_i> IN keys
+                       ( %tky-%is_draft       = <ls_i>-%is_draft
+                         %tky-%pid            = <ls_i>-%pid
+                         %tky-purchaseOrderId = <ls_i>-purchaseOrderId
+                         %tky-itemId          = <ls_i>-itemId  ) )
+         LINK DATA(lt_item_to_order).
 
-      DATA(lv_count) = 0.
-      LOOP AT GROUP <lv_po> ASSIGNING FIELD-SYMBOL(<ls_member>).
+    READ ENTITIES OF zpru_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP BY \_items_tp
+         ALL FIELDS
+         WITH VALUE #( FOR <ls_ord> IN lt_item_to_order
+                       ( CORRESPONDING #( <ls_ord>-target ) ) )
+         RESULT DATA(lt_ALL_items).
+
+    LOOP AT lt_items ASSIGNING FIELD-SYMBOL(<ls_GROUP>)
+         GROUP BY ( is_draft        = <ls_GROUP>-%is_draft
+                    pidparent       = <ls_GROUP>-%pidparent
+                    purchaseorderid = <ls_GROUP>-purchaseorderid ) ASSIGNING FIELD-SYMBOL(<ls_GROUP_key>).
+
+      LOOP AT lt_ALL_items ASSIGNING FIELD-SYMBOL(<ls_ALL_ITEMS>).
+        IF line_exists( keys[ KEY id COMPONENTS %tky = <ls_ALL_ITEMS>-%tky ] ).
+          CONTINUE.
+        ENDIF.
+        APPEND INITIAL LINE TO lt_EXISTING_items ASSIGNING FIELD-SYMBOL(<ls_existing_item>).
+        <ls_existing_item> = CORRESPONDING #( <ls_ALL_ITEMS> ).
+      ENDLOOP.
+
+      SORT lt_EXISTING_items BY itemNumber DESCENDING.
+      DATA(lv_count) = COND i( WHEN lines( lt_EXISTING_items ) > 0
+                               THEN VALUE #( lt_EXISTING_items[ 1 ]-itemNumber OPTIONAL )
+                               ELSE 0 ).
+
+      LOOP AT GROUP <ls_GROUP_key> ASSIGNING FIELD-SYMBOL(<ls_MEMBER>).
 
         lv_count = lv_count + 1.
-
         APPEND INITIAL LINE TO lt_item_update ASSIGNING FIELD-SYMBOL(<ls_item_update>).
         <ls_item_update>-%tky = <ls_member>-%tky.
         <ls_item_update>-%data-itemNumber = lv_count.
@@ -1637,67 +1671,74 @@ CLASS lsc_ZPRU_PURCORDERHDR_TP IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    IF mapped-ordertp IS NOT INITIAL.
+      lv_last_po_number = zpru_cl_utility_function=>get_last_po_number( ).
+      LOOP AT mapped-ordertp ASSIGNING FIELD-SYMBOL(<ls_order>).
+        lv_last_po_number = lv_last_po_number + 1.
+        lv_last_po_char = lv_last_po_number.
+        <ls_order>-%key-purchaseOrderId = |{ lv_last_po_char ALPHA = IN }|.
+      ENDLOOP.
+    ENDIF.
+
+    IF mapped-itemtp IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF Zpru_PurcOrderHdr_tp
+         IN LOCAL MODE
+         ENTITY ItemTP BY \_header_tp
+         ALL FIELDS WITH VALUE #( FOR <ls_i>
+                                  IN mapped-itemtp
+                                  ( %tky-%pid            = <ls_i>-%pre-%pid
+                                    %tky-purchaseOrderId = <ls_i>-%pre-%tmp-purchaseOrderId
+                                    %tky-itemId          = <ls_i>-%pre-%tmp-itemId ) )
+         LINK DATA(lt_link_item_to_order).
+
     READ ENTITIES OF Zpru_PurcOrderHdr_tp
          IN LOCAL MODE
          ENTITY OrderTP BY \_items_tp
-         ALL FIELDS WITH VALUE #( FOR <ls_r>
-                                  IN mapped-ordertp
-                                  ( %tky-%pid            = <ls_r>-%pre-%pid
-                                    %tky-purchaseOrderId = <ls_r>-%pre-%tmp-purchaseOrderId ) )
-         LINK DATA(lt_link).
+         ALL FIELDS WITH VALUE #( FOR <ls_o> IN lt_link_item_to_order
+                                  ( %tky = <ls_o>-target-%tky  ) )
+         LINK DATA(lt_all_items).
 
-    READ ENTITIES OF Zpru_PurcOrderHdr_tp
-         IN LOCAL MODE
-         ENTITY OrderTP BY \_text_tp
-         ALL FIELDS WITH VALUE #( FOR <ls_r>
-                                  IN mapped-ordertp
-                                  ( %tky-%pid            = <ls_r>-%pre-%pid
-                                    %tky-purchaseOrderId = <ls_r>-%pre-%tmp-purchaseOrderId ) )
-         LINK DATA(lt_link_text).
+    LOOP AT lt_link_item_to_order ASSIGNING FIELD-SYMBOL(<ls_group>)
+         GROUP BY ( pid             = <ls_group>-target-%pid
+                    purchaseorderid = <ls_group>-target-purchaseOrderId
+                    is_draft        = <ls_group>-target-%is_draft ) ASSIGNING FIELD-SYMBOL(<ls_group_key>).
 
-    lv_last_po_number = zpru_cl_utility_function=>get_last_po_number( ).
+      DATA(lt_items_all_copy) = lt_all_items.
 
-    LOOP AT mapped-ordertp ASSIGNING FIELD-SYMBOL(<ls_order>).
-      lv_last_po_number = lv_last_po_number + 1.
-      lv_last_po_char = lv_last_po_number.
-      <ls_order>-%key-purchaseOrderId = |{ lv_last_po_char ALPHA = IN }|.
+      " delete all items relevant to other orders
+      DELETE lt_items_all_copy WHERE     source-%is_draft       <> <ls_group_key>-is_draft
+                                     AND source-%pid            <> <ls_group_key>-pid
+                                     AND source-purchaseorderid <> <ls_group_key>-purchaseorderid.
 
-      LOOP AT lt_link_text ASSIGNING FIELD-SYMBOL(<ls_link_text>)
-           USING KEY pid
-           WHERE     source-%pid            = <ls_order>-%pre-%pid
-                 AND source-purchaseOrderId = <ls_order>-%pre-%tmp-purchaseOrderId.
+      " delete items to be processed in this method
+      LOOP AT GROUP <ls_group_key> ASSIGNING FIELD-SYMBOL(<ls_item_member>).
+        DELETE lt_items_all_copy WHERE target = <ls_item_member>-source.
+      ENDLOOP.
 
-        ASSIGN mapped-texttp[ %pre-%pid                 = <ls_link_text>-target-%pky-%pid
-                              %pre-%tmp-purchaseOrderId = <ls_link_text>-target-%pky-purchaseOrderId
-                              %pre-%tmp-Language        = <ls_link_text>-target-%pky-Language ] TO FIELD-SYMBOL(<ls_text_target>).
+      SORT lt_items_all_copy BY target-itemid DESCENDING.
+      DATA(lv_count) = COND i( WHEN lines( lt_items_all_copy ) > 0
+                               THEN VALUE #( lt_items_all_copy[ 1 ]-target-itemid OPTIONAL )
+                               ELSE 0 ).
+
+      LOOP AT GROUP <ls_group_key> ASSIGNING <ls_item_member>.
+
+        ASSIGN mapped-itemtp[ %pid                 = <ls_item_member>-source-%pid
+                              %tmp-itemid          = <ls_item_member>-source-itemId
+                              %tmp-purchaseOrderId = <ls_item_member>-source-purchaseOrderId ] TO FIELD-SYMBOL(<ls_target>).
         IF sy-subrc <> 0.
           CONTINUE.
         ENDIF.
-
-        <ls_text_target>-%key-purchaseOrderId = <ls_order>-%key-purchaseOrderId.
-        <ls_text_target>-%key-Language        = COND #( WHEN <ls_text_target>-%tmp-Language IS NOT INITIAL
-                                                        THEN <ls_text_target>-%tmp-Language
-                                                        ELSE sy-langu ).
-      ENDLOOP.
-
-      DATA(lv_count) = 0.
-      LOOP AT lt_link ASSIGNING FIELD-SYMBOL(<ls_link>)
-           USING KEY pid
-           WHERE     source-%pid            = <ls_order>-%pre-%pid
-                 AND source-purchaseOrderId = <ls_order>-%pre-%tmp-purchaseOrderId.
 
         lv_count = lv_count + 1.
         lv_count_char = lv_count.
 
-        ASSIGN mapped-itemtp[ %pre-%pid                 = <ls_link>-target-%pky-%pid
-                              %pre-%tmp-purchaseOrderId = <ls_link>-target-%pky-purchaseOrderId ] TO FIELD-SYMBOL(<ls_item_target>).
-        IF sy-subrc <> 0.
-          CONTINUE.
-        ENDIF.
-
-        <ls_item_target>-%key-purchaseOrderId = <ls_order>-%key-purchaseOrderId.
-        <ls_item_target>-%key-itemId          = |{ lv_count_char ALPHA = IN }|.
+        <ls_target>-%key-purchaseOrderId = <ls_group_key>-purchaseorderid.
+        <ls_target>-%key-itemId          = |{ lv_count_char ALPHA = IN }|.
       ENDLOOP.
+
     ENDLOOP.
   ENDMETHOD.
 
