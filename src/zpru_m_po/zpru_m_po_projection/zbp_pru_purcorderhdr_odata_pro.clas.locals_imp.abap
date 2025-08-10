@@ -20,7 +20,6 @@ ENDCLASS.
 
 
 CLASS lhc_OrderTP IMPLEMENTATION.
-
   METHOD precheck_create.
   ENDMETHOD.
 
@@ -176,121 +175,137 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD augment.
-    DATA: lt_ordertext_for_new_order     TYPE TABLE FOR CREATE Zpru_PurcOrderHdr_tp\_text_tp,
-          lt_ordertext_for_existing_ordr TYPE TABLE FOR CREATE Zpru_PurcOrderHdr_tp\_text_tp,
-          lt_ordertext_update            TYPE TABLE FOR UPDATE Zpru_PurcOrderHdr_T_TP.
-    DATA: lt_relates_create TYPE abp_behv_relating_tab,
-          lt_relates_update TYPE abp_behv_relating_tab,
-          lt_relates_cba    TYPE abp_behv_relating_tab.
-    DATA: ls_order_text_tky_link TYPE STRUCTURE FOR READ LINK Zpru_PurcOrderHdr_tp\\OrderTP\_text_tp,
-          ls_order_text_tky      LIKE ls_order_text_tky_link-target.
+    DATA lt_ordertext_for_new_order     TYPE TABLE FOR CREATE Zpru_PurcOrderHdr_tp\_text_tp.
+    DATA lt_ordertext_for_existing_ordr TYPE TABLE FOR CREATE Zpru_PurcOrderHdr_tp\_text_tp.
+    DATA lt_ordertext_update            TYPE TABLE FOR UPDATE Zpru_PurcOrderHdr_T_TP.
+    DATA lt_relates_create              TYPE abp_behv_relating_tab.
+    DATA lt_relates_update              TYPE abp_behv_relating_tab.
+    DATA lt_relates_cba                 TYPE abp_behv_relating_tab.
 
-    "Handle create requests including SupplementDescription
+    DATA lv_text                        TYPE string.
+
+    " Handle create requests including OrderDescription
     LOOP AT entities_create ASSIGNING FIELD-SYMBOL(<ls_order_create>).
-      "Count Table index for uniquely identifiably %cid on creating supplementtext
+      " Count Table index for uniquely identifiably %cid on creating ordertext
       APPEND sy-tabix TO lt_relates_create.
 
-      "Direct the Order Create to the corresponding OrderText Create-By-Association using the current language
-      APPEND VALUE #( %cid_ref           = <ls_order_create>-%cid
-                      %is_draft          = <ls_order_create>-%is_draft
-                      purchaseorderid    = <ls_order_create>-purchaseorderid
-                      %target            = VALUE #( ( %cid              = |CREATETEXTCID{ sy-tabix }|
-                                                      %is_draft         = <ls_order_create>-%is_draft
-                                                      purchaseorderid   = <ls_order_create>-purchaseorderid
-                                                      language          = sy-langu
-                                                      TextContent       = <ls_order_create>-orderDescription
-                                                      %control          = VALUE #( purchaseorderid = if_abap_behv=>mk-on
-                                                                                   language = if_abap_behv=>mk-on
-                                                                                   TextContent  = <ls_order_create>-%control-orderDescription )
-                                                   ) )
-                     ) TO lt_ordertext_for_new_order.
+      CLEAR lv_text.
+      IF line_exists( entities_update[ KEY cid
+                                       COMPONENTS %is_draft = <ls_order_create>-%is_draft
+                                                  %cid_ref  = <ls_order_create>-%cid ] ).
+        LOOP AT entities_update ASSIGNING FIELD-SYMBOL(<ls_update_in_one_session>)
+             WHERE %control-OrderDescription = if_abap_behv=>mk-on.
+          " preserve last value from all updates requests
+          lv_text = <ls_update_in_one_session>-OrderDescription.
+        ENDLOOP.
+      ENDIF.
+
+      " Direct the Order Create to the corresponding OrderText Create-By-Association using the current language
+      APPEND VALUE #(
+          %cid_ref        = <ls_order_create>-%cid
+          %is_draft       = <ls_order_create>-%is_draft
+          purchaseorderid = <ls_order_create>-purchaseorderid
+          %target         = VALUE #( ( %cid            = |CREATETEXTCID{ sy-tabix }|
+                                       %is_draft       = <ls_order_create>-%is_draft
+                                       purchaseorderid = <ls_order_create>-purchaseorderid
+                                       language        = sy-langu
+                                       TextContent     = COND #( WHEN lv_text IS NOT INITIAL
+                                                                 THEN lv_text
+                                                                 ELSE <ls_order_create>-orderDescription )
+                                       %control        = VALUE #(
+                                           purchaseorderid = if_abap_behv=>mk-on
+                                           language        = if_abap_behv=>mk-on
+                                           TextContent     = <ls_order_create>-%control-OrderDescription ) ) ) )
+             TO lt_ordertext_for_new_order.
     ENDLOOP.
 
-    MODIFY AUGMENTING ENTITIES OF Zpru_PurcOrderHdr_tp
-    ENTITY OrderTP
-    CREATE BY \_text_tp
-    FROM lt_ordertext_for_new_order
-    RELATING TO entities_create BY lt_relates_create.
+    IF lt_ordertext_for_new_order IS NOT INITIAL.
+      MODIFY AUGMENTING ENTITIES OF Zpru_PurcOrderHdr_tp
+             ENTITY OrderTP
+             CREATE BY \_text_tp
+             FROM lt_ordertext_for_new_order
+             RELATING TO entities_create BY lt_relates_create.
 
-
+    ENDIF.
 
     IF entities_update IS NOT INITIAL.
 
       READ ENTITIES OF Zpru_PurcOrderHdr_tp
-      ENTITY OrderTP BY \_text_tp
-      FROM CORRESPONDING #( entities_update )
-      LINK DATA(link)
-      FAILED DATA(link_failed).
+           ENTITY OrderTP BY \_text_tp
+           FROM CORRESPONDING #( entities_update )
+           LINK DATA(link)
+           FAILED DATA(link_failed).
 
-      "Handle update requests
+      " Handle update requests
       LOOP AT entities_update ASSIGNING FIELD-SYMBOL(<ls_order_update>)
-                              WHERE %control-orderDescription = if_abap_behv=>mk-on.
+           WHERE %control-OrderDescription = if_abap_behv=>mk-on.
 
-        CHECK NOT line_exists( link_failed-ordertp[ KEY draft
-                                                    %tky = CORRESPONDING #( <ls_order_update>-%tky ) ] )
-          OR line_exists( lt_ordertext_for_new_order[ KEY cid
-                                                      %cid_ref = <ls_order_update>-%cid_ref
-                                                      %is_draft = <ls_order_update>-%is_draft ] ).
+        IF         line_exists( link_failed-ordertp[ KEY draft
+                                                     %tky = CORRESPONDING #( <ls_order_update>-%tky ) ] )
+           AND NOT line_exists( lt_ordertext_for_new_order[ KEY cid
+                                                            %cid_ref  = <ls_order_update>-%cid_ref
+                                                            %is_draft = <ls_order_update>-%is_draft ] ).
+          CONTINUE.
+        ENDIF.
 
+        DATA(LV_tabix) = sy-tabix.
 
-        DATA(tabix) = sy-tabix.
+        ASSIGN link[ source-%tky-%is_draft       = <ls_order_update>-%tky-%is_draft
+                     source-%tky-%pid            = <ls_order_update>-%tky-%pid " order pid, ignoring text pid
+                     source-%tky-purchaseOrderId = <ls_order_update>-%tky-purchaseOrderId
+                     target-%tky-%is_draft       = <ls_order_update>-%is_draft
+                     target-%tky-PurchaseOrderId = <ls_order_update>-purchaseOrderId
+                     target-%tky-Language        = sy-langu ] TO FIELD-SYMBOL(<ls_existing_text>).
 
-        "Create variable for %tky for target entity instances
-        ls_order_text_tky = CORRESPONDING #( <ls_order_update>-%tky )  .
-        ls_order_text_tky-Language = sy-langu.
+        " If a order_text with sy-langu already exists, perform an update. Else perform a create-by-association.
+        IF sy-subrc = 0.
 
-        "If a order_text with sy-langu already exists, perform an update. Else perform a create-by-association.
-        IF line_exists( link[ KEY draft source-%tky  = CORRESPONDING #( <ls_order_update>-%tky )
-                                        target-%tky  = CORRESPONDING #( ls_order_text_tky ) ] ).
+          APPEND LV_tabix TO lt_relates_update.
 
-          APPEND tabix TO lt_relates_update.
+          APPEND VALUE #( %tky        = <ls_existing_text>-target-%tky
+                          %cid_ref    = <ls_order_update>-%cid_ref
+                          TextContent = <ls_order_update>-OrderDescription
+                          %control    = VALUE #( TextContent = <ls_order_update>-%control-OrderDescription ) )
+                 TO lt_ordertext_update.
 
-          APPEND VALUE #( %tky             = ls_order_text_tky
-                          %cid_ref         = <ls_order_update>-%cid_ref
-                          TextContent      = <ls_order_update>-orderDescription
-                          %control         = VALUE #( TextContent = <ls_order_update>-%control-orderDescription )
-                        ) TO lt_ordertext_update.
-
-          "If order_text was created in the current MODIFY, perform an update based on %cid
-        ELSEIF line_exists(  lt_ordertext_for_new_order[ KEY cid %is_draft = <ls_order_update>-%is_draft
-                                                          %cid_ref  = <ls_order_update>-%cid_ref ] ).
-          APPEND tabix TO lt_relates_update.
-
-          APPEND VALUE #( %tky             = ls_order_text_tky
-                          %cid_ref         = lt_ordertext_for_new_order[ %is_draft = <ls_order_update>-%is_draft
-                                                                  %cid_ref  = <ls_order_update>-%cid_ref ]-%target[ 1 ]-%cid
-                           TextContent    = <ls_order_update>-orderDescription
-                          %control         = VALUE #( TextContent = <ls_order_update>-%control-orderDescription )
-                        ) TO lt_ordertext_update.
-
-          "If order_text with sy-langu does not exist yet for corresponding order
+        " If order_text was created in the current MODIFY, perform an update based on %cid
+        ELSEIF line_exists( lt_ordertext_for_new_order[ KEY cid
+                                                        %is_draft = <ls_order_update>-%is_draft
+                                                        %cid_ref  = <ls_order_update>-%cid_ref ] ).
+          CONTINUE.
+          " If order_text with sy-langu does not exist yet for corresponding order
         ELSE.
-          APPEND tabix TO lt_relates_cba.
+          APPEND LV_tabix TO lt_relates_cba.
 
-          "Direct the order Update to the corresponding orderText Create-By-Association using the current language
+          " Direct the order Update to the corresponding orderText Create-By-Association using the current language
           APPEND VALUE #( %tky     = CORRESPONDING #( <ls_order_update>-%tky )
                           %cid_ref = <ls_order_update>-%cid_ref
-                          %target  = VALUE #( ( %cid          = |UPDATETEXTCID{ tabix }|
-                                                language  = sy-langu
-                                                %is_draft     = ls_order_text_tky-%is_draft
-                                                TextContent   = <ls_order_update>-orderDescription
-                                                %control      = VALUE #( language = if_abap_behv=>mk-on
-                                                                         TextContent   = <ls_order_update>-%control-orderDescription )
-                                             ) )
-                         ) TO lt_ordertext_for_existing_ordr.
+                          %target  = VALUE #(
+                              ( %cid        = |UPDATETEXTCID{ LV_tabix }|
+                                language    = sy-langu
+                                %is_draft   = <ls_order_update>-%is_draft
+                                TextContent = <ls_order_update>-OrderDescription
+                                %control    = VALUE #( language    = if_abap_behv=>mk-on
+                                                       TextContent = <ls_order_update>-%control-OrderDescription ) ) ) )
+                 TO lt_ordertext_for_existing_ordr.
         ENDIF.
 
       ENDLOOP.
     ENDIF.
 
-    MODIFY AUGMENTING ENTITIES OF Zpru_PurcOrderHdr_tp
-      ENTITY TextTP
-        UPDATE FROM lt_ordertext_update
-        RELATING TO entities_update BY lt_relates_update
-      ENTITY OrderTP
-        CREATE BY \_text_tp
-        FROM lt_ordertext_for_existing_ordr
-        RELATING TO entities_update BY lt_relates_cba.
+    IF lt_ordertext_update IS NOT INITIAL.
+      MODIFY AUGMENTING ENTITIES OF Zpru_PurcOrderHdr_tp
+             ENTITY TextTP
+             UPDATE FROM lt_ordertext_update
+             RELATING TO entities_update BY lt_relates_update.
+    ENDIF.
 
+    IF lt_ordertext_for_existing_ordr IS NOT INITIAL.
+      MODIFY AUGMENTING ENTITIES OF Zpru_PurcOrderHdr_tp
+             ENTITY OrderTP
+             CREATE BY \_text_tp
+             FROM lt_ordertext_for_existing_ordr
+             RELATING TO entities_update BY lt_relates_cba.
+    ENDIF.
   ENDMETHOD.
 ENDCLASS.
