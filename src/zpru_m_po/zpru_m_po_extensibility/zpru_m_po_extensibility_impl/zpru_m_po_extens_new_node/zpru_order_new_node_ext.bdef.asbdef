@@ -1,0 +1,37 @@
+extension using interface zpru_purcorderhdr_odata_int
+implementation in class zbp_pru_order_new_node_ext unique;
+
+
+extend behavior for OrderInt
+{
+  association _tag { create; with draft; }
+}
+
+
+
+define behavior for ZPRU_TAG_TO_PARENT_TP alias Tag using ZPRU_TAG_TO_PARENT_INT
+persistent table zpru_order_tag
+draft table zpru_tag_draft
+lock dependent
+authorization dependent
+etag dependent
+late numbering
+{
+  update ( features : instance );
+  delete ( features : instance );
+
+  field ( readonly : update ) purchaseOrderId, TagId;
+
+  association _header_tp { with draft; }
+
+  mapping for zpru_order_tag
+    {
+      PurchaseOrderId = purchase_order_id;
+      TagId           = tag_id;
+      TagText         = tag_text;
+      CreatedBy       = created_by;
+      CreateOn        = create_on;
+      ChangedBy       = changed_by;
+      ChangedOn       = changed_on;
+    }
+}

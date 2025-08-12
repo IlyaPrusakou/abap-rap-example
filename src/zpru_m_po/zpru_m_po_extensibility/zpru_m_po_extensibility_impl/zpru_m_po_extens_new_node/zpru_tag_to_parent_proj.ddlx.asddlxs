@@ -1,0 +1,34 @@
+@Metadata.layer: #CUSTOMER
+
+@UI: { headerInfo: { typeName: 'Tag',
+                     typeNamePlural: 'Tags',
+                     title: { type: #STANDARD, value: 'TagText' } } }
+
+annotate entity ZPRU_TAG_TO_PARENT_PROJ with
+{
+
+  @UI.facet: [ { id:            'Tag',
+                 purpose:       #STANDARD,
+                 type:          #IDENTIFICATION_REFERENCE,
+                 label:         'Tag',
+                 position:      10 } ]
+  @UI.hidden: true
+  PurchaseOrderId;
+  @UI.hidden: true
+  TagId;
+
+  @UI: { lineItem:       [ { position: 10 } ],
+         identification: [ { position: 10 } ] }
+  @EndUserText.label: 'Tag'
+  TagText;
+
+  @UI.hidden: true
+  CreatedBy;
+  @UI.hidden: true
+  CreateOn;
+  @UI.hidden: true
+  ChangedBy;
+  @UI.hidden: true
+  ChangedOn;
+
+}
