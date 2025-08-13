@@ -1,0 +1,17 @@
+extension for projection implementation in class zbp_pru_orderhdr_odata_proj_ex unique;
+
+extend behavior for OrderProj
+{
+use association _tag { create; with draft; }
+}
+
+define behavior for ZPRU_TAG_TO_PARENT_PROJ alias TagProj
+{
+  use update;
+  use delete;
+
+  use action clearAllTags;
+  use function getTagCount;
+
+  use association _header_tp { with draft; }
+}

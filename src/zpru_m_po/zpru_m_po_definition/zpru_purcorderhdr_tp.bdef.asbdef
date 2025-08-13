@@ -51,7 +51,7 @@ changedocuments master ( ZPRU_PURC_ORDER )
     validation ( always ) ItemTP~checkItemCurrency;
   }
 
-  determine action checkOrder
+  determine action checkOrder extensible
   {
     determination ( always ) calcTotalAmount;
     determination ( always ) setControlTimestamp;

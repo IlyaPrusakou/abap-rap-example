@@ -4,10 +4,18 @@ implementation in class zbp_pru_order_new_node_ext unique;
 
 extend behavior for OrderInt
 {
+  extend draft determine action Prepare
+  {
+    validation ( always ) Tag~checkTag;
+  }
+
+  extend determine action checkOrder
+  {
+    validation ( always ) Tag~checkTag;
+  }
+
   association _tag { create; with draft; }
 }
-
-
 
 define behavior for ZPRU_TAG_TO_PARENT_TP alias Tag using ZPRU_TAG_TO_PARENT_INT
 persistent table zpru_order_tag
@@ -23,6 +31,12 @@ late numbering
   field ( readonly : update ) purchaseOrderId, TagId;
 
   association _header_tp { with draft; }
+
+  action ( authorization : global ) clearAllTags;
+  static function getTagCount result [0..1] ZPRU_D_TAG_COUNT;
+
+  validation checkTag on save { create; field TagText; }
+  determination generateDefaultTag on save { create; }
 
   mapping for zpru_order_tag
     {

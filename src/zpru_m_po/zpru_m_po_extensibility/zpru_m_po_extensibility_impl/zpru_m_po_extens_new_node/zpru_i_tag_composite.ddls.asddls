@@ -13,12 +13,8 @@ define view entity ZPRU_I_TAG_COMPOSITE
   key PurchaseOrderId,
   key TagId,
       TagText,
-      @Semantics.user.createdBy: true
       CreatedBy,
-      @Semantics.systemDateTime.createdAt: true
       CreateOn,
-      @Semantics.user.localInstanceLastChangedBy: true
       ChangedBy,
-      @Semantics.systemDateTime.localInstanceLastChangedAt: true
       ChangedOn
 }

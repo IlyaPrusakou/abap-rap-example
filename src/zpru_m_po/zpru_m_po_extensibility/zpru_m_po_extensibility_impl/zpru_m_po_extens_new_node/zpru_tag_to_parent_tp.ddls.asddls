@@ -14,9 +14,13 @@ define view entity ZPRU_TAG_TO_PARENT_TP
   key PurchaseOrderId,
   key TagId,
       TagText,
+      @Semantics.user.createdBy: true      
       CreatedBy,
+      @Semantics.systemDateTime.createdAt: true
       CreateOn,
+      @Semantics.user.localInstanceLastChangedBy: true
       ChangedBy,
+      @Semantics.systemDateTime.localInstanceLastChangedAt: true
       ChangedOn,
       _header_tp
 }

@@ -12,13 +12,17 @@ annotate entity ZPRU_TAG_TO_PARENT_PROJ with
                  type:          #IDENTIFICATION_REFERENCE,
                  label:         'Tag',
                  position:      10 } ]
-  @UI.hidden: true
-  PurchaseOrderId;
-  @UI.hidden: true
-  TagId;
-
   @UI: { lineItem:       [ { position: 10 } ],
          identification: [ { position: 10 } ] }
+  @EndUserText.label: 'Tag Order'
+  PurchaseOrderId;
+  @UI: { lineItem:       [ { position: 20 } ],
+         identification: [ { position: 20 } ] }
+  @EndUserText.label: 'Tag Number'
+  TagId;
+
+  @UI: { lineItem:       [ { position: 30 } ],
+         identification: [ { position: 30 } ] }
   @EndUserText.label: 'Tag'
   TagText;
 

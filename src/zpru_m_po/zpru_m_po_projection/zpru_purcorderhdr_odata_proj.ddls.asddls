@@ -40,7 +40,7 @@ define root view entity Zpru_PurcOrderHdr_ODATA_Proj
       changedBy,
       changedOn,
       lastChanged,
-      _text_tp.TextContent as orderDescription : localized, //demonstrate text field, but it only read-only on UI
+      _text_tp.TextContent as orderDescription : localized, 
       
 //      @ObjectModel.virtualElementCalculatedBy: 'ABAP:ZPRU_CL_PO_VIRT_ELEM_EXIT'
 //      virtual orderDescription : abap.string( 5000 ),      

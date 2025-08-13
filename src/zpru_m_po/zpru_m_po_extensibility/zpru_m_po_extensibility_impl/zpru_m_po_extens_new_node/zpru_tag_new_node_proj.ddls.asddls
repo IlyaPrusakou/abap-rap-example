@@ -2,11 +2,11 @@ extend view entity Zpru_PurcOrderHdr_ODATA_Proj with
 {
     @UI.facet: [
       {
-        id:            'Tag',
+//        id:            'Tag',
         purpose:       #STANDARD,
         type:          #LINEITEM_REFERENCE,
         label:         'Tag',
-        position:      30,
+        position:      250,
         targetElement: '_tag'
       }
     ]
