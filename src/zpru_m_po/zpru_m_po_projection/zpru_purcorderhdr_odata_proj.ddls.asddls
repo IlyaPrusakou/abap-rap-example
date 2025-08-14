@@ -33,6 +33,8 @@ define root view entity Zpru_PurcOrderHdr_ODATA_Proj
       deliveryDate,
       status,
       paymentTerms,
+      @Consumption.valueHelpDefinition: [{  entity: {   name: 'ZPRU_I_SHIPPING_METHOD' , 
+                                                        element: 'shippingMethod'  }     }] 
       shippingMethod,
       controlTimestamp,
       createdBy,

@@ -25,7 +25,6 @@ define root view entity Zpru_PurcOrderHdr_tp
   composition of exact one to many Zpru_PurcOrderItem_tp  as _items_tp
   composition of exact one to many Zpru_PurcOrderHdr_T_TP as _text_tp
   association [1]          to Zpru_PurcOrderHdr_E         as _Extension on $projection.purchaseOrderId = _Extension.purchaseOrderId
-
 {
   key purchaseOrderId,
       orderDate,

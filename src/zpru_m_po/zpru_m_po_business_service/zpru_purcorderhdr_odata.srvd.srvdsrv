@@ -5,4 +5,5 @@ define service ZPRU_PURCORDERHDR_ODATA
   expose Zpru_PurcOrderHdr_ODATA_Proj  as purchaseOrder;
   expose Zpru_PurcOrderItem_ODATA_Proj as purchaseItem;
   expose Zpru_PurcOrderHdr_T_PROJ      as purchaseOrderText;
+  expose zpru_i_shipping_method        as shippingMethod;
 }

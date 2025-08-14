@@ -26,13 +26,21 @@ annotate entity ZPRU_TAG_TO_PARENT_PROJ with
   @EndUserText.label: 'Tag'
   TagText;
 
-  @UI.hidden: true
+  @UI: { lineItem:       [ { position: 40 } ],
+         identification: [ { position: 40 } ] }
+  @EndUserText.label: 'Created By'
   CreatedBy;
-  @UI.hidden: true
+  @UI: { lineItem:       [ { position: 50 } ],
+         identification: [ { position: 50 } ] }
+  @EndUserText.label: 'Created On'
   CreateOn;
-  @UI.hidden: true
+  @UI: { lineItem:       [ { position: 60 } ],
+         identification: [ { position: 60 } ] }
+  @EndUserText.label: 'Changed By'
   ChangedBy;
-  @UI.hidden: true
+  @UI: { lineItem:       [ { position: 70 } ],
+         identification: [ { position: 70 } ] }
+  @EndUserText.label: 'Changed On'
   ChangedOn;
 
 }
