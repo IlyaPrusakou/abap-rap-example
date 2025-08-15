@@ -26,6 +26,7 @@ CLASS lcl_buffer DEFINITION.
              cid      TYPE string,
              changed  TYPE abap_bool,
              deleted  TYPE abap_bool,
+             is_draft TYPE abp_behv_flag,
            END OF gty_buffer.
 
     TYPES: BEGIN OF gty_buffer_child,
@@ -33,6 +34,7 @@ CLASS lcl_buffer DEFINITION.
              cid_ref    TYPE string,
              cid_target TYPE string,
              changed    TYPE abap_bool,
+             is_draft   TYPE abp_behv_flag,
            END OF gty_buffer_child.
 
     TYPES gtt_buffer       TYPE TABLE OF gty_buffer WITH EMPTY KEY.
@@ -41,6 +43,8 @@ CLASS lcl_buffer DEFINITION.
     " Internal tables serving as transactional buffers for the root and child entities
     CLASS-DATA root_buffer  TYPE STANDARD TABLE OF gty_buffer WITH EMPTY KEY.
     CLASS-DATA child_buffer TYPE STANDARD TABLE OF gty_buffer_child WITH EMPTY KEY.
+    CLASS-DATA ts1          TYPE timestampl.
+    CLASS-DATA ts2          TYPE timestampl.
 
     " Structure and internal table types to include the keys for buffer preparation methods
     TYPES: BEGIN OF root_keys,
@@ -304,6 +308,10 @@ CLASS lhc_OrderTP IMPLEMENTATION.
         " If it exists, removing instance that is marked for deletion from the transactional buffer since it gets replaced by a new one.
         DELETE lcl_buffer=>root_buffer WHERE instance-purchaseOrderId = VALUE #( lcl_buffer=>root_buffer[
                                                                                      instance-purchaseOrderId = <ls_create>-purchaseOrderId ]-instance-purchaseOrderId OPTIONAL ) AND deleted = abap_true.
+*        CLEAR lcl_buffer=>ts1.
+*        CLEAR lcl_buffer=>ts2.
+*        GET TIME STAMP FIELD lcl_buffer=>ts1.
+*        lcl_buffer=>ts2 = lcl_buffer=>ts1.
 
         " Adding new instance to the transactional buffer by considering %control values
         APPEND VALUE #(
@@ -348,19 +356,31 @@ CLASS lhc_OrderTP IMPLEMENTATION.
 
         " Filling the MAPPED response parameter for the root entity
         INSERT VALUE #( %cid = <ls_create>-%cid
-                        %key = <ls_create>-%key ) INTO TABLE mapped-ordertp.
+                        %key = <ls_create>-%key
+                        %is_draft      = <ls_create>-%is_draft ) INTO TABLE mapped-ordertp.
+
+        "Fill reported parameter.
+        APPEND VALUE #( %msg      = new_message_with_text(
+                        severity  = if_abap_behv_message=>severity-success
+                       text      = 'create: Ok!' )
+                       purchaseOrderId = <ls_create>-purchaseOrderId
+                       %cid           = <ls_create>-%cid
+                       %is_draft      = <ls_create>-%is_draft
+                     ) TO reported-ordertp.
 
       ELSE.
 
         " Filling FAILED and REPORTED response parameters
         APPEND VALUE #( %cid        = <ls_create>-%cid
                         %key        = <ls_create>-%key
+                        %is_draft      = <ls_create>-%is_draft
                         %create     = if_abap_behv=>mk-on
                         %fail-cause = if_abap_behv=>cause-unspecific )
                TO failed-ordertp.
 
         APPEND VALUE #( %cid    = <ls_create>-%cid
                         %key    = <ls_create>-%key
+                        %is_draft  = <ls_create>-%is_draft
                         %create = if_abap_behv=>mk-on
                         %msg    = new_message_with_text( severity = if_abap_behv_message=>severity-error
                                                          text     = 'Create operation failed.' ) )
@@ -657,6 +677,127 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD cba_Items_tp.
+    " Preparing the transactional buffers for both the root and child entity based on the input BDEF derived type
+    lcl_buffer=>prep_root_buffer( CORRESPONDING #( entities_cba ) ).
+    lcl_buffer=>prep_child_buffer( CORRESPONDING #( entities_cba ) ).
+
+    " Processing requested entities sequentially
+    LOOP AT entities_cba ASSIGNING FIELD-SYMBOL(<ls_cba>) GROUP BY <ls_cba>-purchaseOrderId.
+      " Logic:
+      "- Line with the shared key value exists in the buffer for the root entity and it is not marked as deleted
+      "- If it is true: Sequentially processing the instances in the %target table
+      IF line_exists( lcl_buffer=>root_buffer[ instance-purchaseOrderId = <ls_cba>-purchaseOrderId
+                                               deleted                  = abap_false ] ).
+
+        LOOP AT <ls_cba>-%target ASSIGNING FIELD-SYMBOL(<ls_ch>).
+
+          " Adding instance to child buffer if it does not exist there and considering %control values
+          " The example is implemented in a way that the RAP BO consumer need not specify the common key with the root entity.
+          " Plus, the keys of the child entity should not be initial.
+          IF     NOT line_exists( lcl_buffer=>child_buffer[ instance-purchaseOrderId = <ls_cba>-purchaseOrderId
+                                                            instance-itemId          = <ls_ch>-itemId ] )
+             AND     <ls_ch>-itemId IS NOT INITIAL.
+
+            APPEND VALUE #(
+                cid_ref                    = <ls_cba>-%cid_ref
+                cid_target                 = <ls_ch>-%cid
+                instance-purchaseOrderId   = <ls_cba>-purchaseOrderId
+                instance-itemId            = <ls_ch>-itemId
+                instance-itemNumber        = COND #( WHEN <ls_ch>-%control-itemNumber <> if_abap_behv=>mk-off
+                                                     THEN <ls_ch>-itemNumber )
+                instance-productId         = COND #( WHEN <ls_ch>-%control-productId <> if_abap_behv=>mk-off
+                                                     THEN <ls_ch>-productId )
+                instance-productName       = COND #( WHEN <ls_ch>-%control-productName <> if_abap_behv=>mk-off
+                                                     THEN <ls_ch>-productName )
+                instance-quantity          = COND #( WHEN <ls_ch>-%control-quantity <> if_abap_behv=>mk-off
+                                                     THEN <ls_ch>-quantity )
+                instance-unitPrice         = COND #( WHEN <ls_ch>-%control-unitPrice <> if_abap_behv=>mk-off
+                                                     THEN <ls_ch>-unitPrice )
+                instance-totalPrice        = COND #( WHEN <ls_ch>-%control-totalPrice <> if_abap_behv=>mk-off
+                                                     THEN <ls_ch>-totalPrice )
+                instance-deliveryDate      = COND #( WHEN <ls_ch>-%control-deliveryDate <> if_abap_behv=>mk-off
+                                                     THEN <ls_ch>-deliveryDate )
+                instance-warehouseLocation = COND #( WHEN <ls_ch>-%control-warehouseLocation <> if_abap_behv=>mk-off
+                                                     THEN <ls_ch>-warehouseLocation )
+                instance-itemCurrency      = COND #( WHEN <ls_ch>-%control-itemCurrency <> if_abap_behv=>mk-off
+                                                     THEN <ls_ch>-itemCurrency )
+                instance-isUrgent          = COND #( WHEN <ls_ch>-%control-isUrgent <> if_abap_behv=>mk-off
+                                                     THEN <ls_ch>-isUrgent )
+                instance-createdBy         = COND #( WHEN <ls_ch>-%control-createdBy <> if_abap_behv=>mk-off
+                                                     THEN <ls_ch>-createdBy )
+                instance-createOn          = COND #( WHEN <ls_ch>-%control-createOn <> if_abap_behv=>mk-off
+                                                     THEN <ls_ch>-createOn )
+                instance-changedBy         = COND #( WHEN <ls_ch>-%control-changedBy <> if_abap_behv=>mk-off
+                                                     THEN <ls_ch>-changedBy )
+                instance-changedOn         = COND #( WHEN <ls_ch>-%control-changedOn <> if_abap_behv=>mk-off
+                                                     THEN <ls_ch>-changedOn )
+                changed                    = abap_true ) TO lcl_buffer=>child_buffer.
+
+            " Filling MAPPED response parameter
+            INSERT VALUE #( %cid = <ls_ch>-%cid
+                            %key = VALUE #( purchaseOrderId = <ls_cba>-purchaseOrderId
+                                            itemId          = <ls_ch>-itemId ) ) INTO TABLE mapped-itemtp.
+
+          ELSE.
+
+            " Filling FAILED and REPORTED response parameters
+            APPEND VALUE #( %cid             = <ls_cba>-%cid_ref
+                            %tky             = <ls_cba>-%tky
+                            %assoc-_items_tp = if_abap_behv=>mk-on
+                            %fail-cause      = if_abap_behv=>cause-unspecific )
+                   TO failed-ordertp.
+
+            APPEND VALUE #( %cid = <ls_cba>-%cid_ref
+                            %tky = <ls_cba>-%tky
+                            %msg = new_message_with_text( severity = if_abap_behv_message=>severity-error
+                                                          text     = 'CBA operatoion (root to child) failed.' ) )
+                   TO reported-ordertp.
+
+            APPEND VALUE #( %cid        = <ls_ch>-%cid
+                            %key        = VALUE #( purchaseOrderId = <ls_cba>-purchaseOrderId
+                                                   itemId          = <ls_ch>-itemId )
+                            %fail-cause = if_abap_behv=>cause-dependency )
+                   TO failed-itemtp.
+
+            APPEND VALUE #( %cid = <ls_ch>-%cid
+                            %key = VALUE #( purchaseOrderId = <ls_cba>-purchaseOrderId
+                                            itemId          = <ls_ch>-itemId )
+                            %msg = new_message_with_text( severity = if_abap_behv_message=>severity-error
+                                                          text     = 'CBA operation (root to child) failed.' ) )
+                   TO reported-itemtp.
+
+          ENDIF.
+        ENDLOOP.
+
+      ELSE.
+
+        " Filling FAILED and REPORTED response parameters
+        APPEND VALUE #( %cid             = <ls_cba>-%cid_ref
+                        %tky             = <ls_cba>-%tky
+                        %assoc-_items_tp = if_abap_behv=>mk-on
+                        %fail-cause      = if_abap_behv=>cause-not_found )
+               TO failed-ordertp.
+
+        APPEND VALUE #( %cid = <ls_cba>-%cid_ref
+                        %tky = <ls_cba>-%tky
+                        %msg = new_message_with_text( severity = if_abap_behv_message=>severity-error
+                                                      text     = 'CBA operation (root to child) failed.' ) )
+               TO reported-ordertp.
+
+        LOOP AT <ls_cba>-%target ASSIGNING FIELD-SYMBOL(<ls_target>).
+          APPEND VALUE #( %cid        = <ls_target>-%cid
+                          %key        = <ls_target>-%key
+                          %fail-cause = if_abap_behv=>cause-dependency )
+                 TO failed-itemtp.
+
+          APPEND VALUE #( %cid = <ls_target>-%cid
+                          %key = <ls_target>-%key
+                          %msg = new_message_with_text( severity = if_abap_behv_message=>severity-error
+                                                        text     = 'CBA operation (root to child) failed.' ) )
+                 TO reported-itemtp.
+        ENDLOOP.
+      ENDIF.
+    ENDLOOP.
   ENDMETHOD.
 
   METHOD getAllItems.
@@ -776,6 +917,96 @@ CLASS lhc_ItemTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD update.
+*    " Preparing the transactional buffer based on the input BDEF derived type.
+*    lcl_buffer=>prep_child_buffer( VALUE #( FOR <ls_k>
+*                                            IN entities
+*                                            ( purchaseOrderId = <ls_k>-purchaseOrderId
+*                                              itemId          = <ls_k>-itemId
+*                                              full_key        = abap_true  ) ) ).
+*
+*    " Processing requested entities sequentially
+*    LOOP AT entities ASSIGNING FIELD-SYMBOL(<ls_update>).
+*
+*      " Logic:
+*      "- Line with the specific key exists in the buffer for the root entity
+*      "- Line with the specific key must not be marked as deleted
+*      "- If it is true: Updating the buffer based on the input BDEF derived type and considering %control values
+*      READ TABLE lcl_buffer=>root_buffer
+*           WITH KEY instance-purchaseOrderId = <ls_update>-purchaseOrderId
+*                    deleted                  = abap_false
+*           ASSIGNING FIELD-SYMBOL(<ls_up>).
+*
+*      IF sy-subrc = 0.
+*        <ls_up>-instance-orderDate        = COND #( WHEN <ls_update>-%control-orderDate <> if_abap_behv=>mk-off
+*                                                    THEN <ls_update>-orderDate
+*                                                    ELSE <ls_up>-instance-orderDate ).
+*        <ls_up>-instance-supplierId       = COND #( WHEN <ls_update>-%control-supplierId <> if_abap_behv=>mk-off
+*                                                    THEN <ls_update>-supplierId
+*                                                    ELSE <ls_up>-instance-supplierId ).
+*        <ls_up>-instance-supplierName     = COND #( WHEN <ls_update>-%control-supplierName <> if_abap_behv=>mk-off
+*                                                    THEN <ls_update>-supplierName
+*                                                    ELSE <ls_up>-instance-supplierName ).
+*        <ls_up>-instance-buyerId          = COND #( WHEN <ls_update>-%control-buyerId <> if_abap_behv=>mk-off
+*                                                    THEN <ls_update>-buyerId
+*                                                    ELSE <ls_up>-instance-buyerId ).
+*        <ls_up>-instance-buyerName        = COND #( WHEN <ls_update>-%control-buyerName <> if_abap_behv=>mk-off
+*                                                    THEN <ls_update>-buyerName
+*                                                    ELSE <ls_up>-instance-buyerName ).
+*        <ls_up>-instance-totalAmount      = COND #( WHEN <ls_update>-%control-totalAmount <> if_abap_behv=>mk-off
+*                                                    THEN <ls_update>-totalAmount
+*                                                    ELSE <ls_up>-instance-totalAmount ).
+*        <ls_up>-instance-headerCurrency   = COND #( WHEN <ls_update>-%control-headerCurrency <> if_abap_behv=>mk-off
+*                                                    THEN <ls_update>-headerCurrency
+*                                                    ELSE <ls_up>-instance-headerCurrency ).
+*        <ls_up>-instance-deliveryDate     = COND #( WHEN <ls_update>-%control-deliveryDate <> if_abap_behv=>mk-off
+*                                                    THEN <ls_update>-deliveryDate
+*                                                    ELSE <ls_up>-instance-deliveryDate ).
+*        <ls_up>-instance-status           = COND #( WHEN <ls_update>-%control-status <> if_abap_behv=>mk-off
+*                                                    THEN <ls_update>-status
+*                                                    ELSE <ls_up>-instance-status ).
+*        <ls_up>-instance-paymentTerms     = COND #( WHEN <ls_update>-%control-paymentTerms <> if_abap_behv=>mk-off
+*                                                    THEN <ls_update>-paymentTerms
+*                                                    ELSE <ls_up>-instance-paymentTerms ).
+*        <ls_up>-instance-shippingMethod   = COND #( WHEN <ls_update>-%control-shippingMethod <> if_abap_behv=>mk-off
+*                                                    THEN <ls_update>-shippingMethod
+*                                                    ELSE <ls_up>-instance-shippingMethod ).
+*        <ls_up>-instance-controlTimestamp = COND #( WHEN <ls_update>-%control-controlTimestamp <> if_abap_behv=>mk-off
+*                                                    THEN <ls_update>-controlTimestamp
+*                                                    ELSE <ls_up>-instance-controlTimestamp ).
+*        <ls_up>-instance-createdBy        = COND #( WHEN <ls_update>-%control-createdBy <> if_abap_behv=>mk-off
+*                                                    THEN <ls_update>-createdBy
+*                                                    ELSE <ls_up>-instance-createdBy ).
+*        <ls_up>-instance-createOn         = COND #( WHEN <ls_update>-%control-createOn <> if_abap_behv=>mk-off
+*                                                    THEN <ls_update>-createOn
+*                                                    ELSE <ls_up>-instance-createOn ).
+*        <ls_up>-instance-changedBy        = COND #( WHEN <ls_update>-%control-changedBy <> if_abap_behv=>mk-off
+*                                                    THEN <ls_update>-changedBy
+*                                                    ELSE <ls_up>-instance-changedBy ).
+*        <ls_up>-instance-changedOn        = COND #( WHEN <ls_update>-%control-changedOn <> if_abap_behv=>mk-off
+*                                                    THEN <ls_update>-changedOn
+*                                                    ELSE <ls_up>-instance-changedOn ).
+*        <ls_up>-instance-lastChanged      = COND #( WHEN <ls_update>-%control-lastChanged <> if_abap_behv=>mk-off
+*                                                    THEN <ls_update>-lastChanged
+*                                                    ELSE <ls_up>-instance-lastChanged ).
+*        <ls_up>-changed = abap_true.
+*        <ls_up>-deleted = abap_false.
+*      ELSE.
+*
+*        " Filling FAILED and REPORTED response parameters
+*        APPEND VALUE #( %tky        = <ls_update>-%tky
+*                        %cid        = <ls_update>-%cid_ref
+*                        %fail-cause = if_abap_behv=>cause-not_found
+*                        %update     = if_abap_behv=>mk-on )
+*               TO failed-ordertp.
+*
+*        APPEND VALUE #( %tky = <ls_update>-%tky
+*                        %cid = <ls_update>-%cid_ref
+*                        %msg = new_message_with_text( severity = if_abap_behv_message=>severity-error
+*                                                      text     = 'Update operation failed.' ) )
+*               TO reported-ordertp.
+*
+*      ENDIF.
+*    ENDLOOP.
   ENDMETHOD.
 
   METHOD delete.

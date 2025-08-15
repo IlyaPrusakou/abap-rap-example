@@ -1,0 +1,6 @@
+@EndUserText.label: 'Unmanged Order UI'
+define service ZPRU_U_PURCORDERHDR_UI
+  provider contracts odata_v4_ui, odata_v2_ui {
+  expose ZPRU_U_PURCORDERHDR_PROJ  as purchaseOrder;
+  expose ZPRU_U_PURCORDERITEM_PROJ as purchaseItem;
+}
