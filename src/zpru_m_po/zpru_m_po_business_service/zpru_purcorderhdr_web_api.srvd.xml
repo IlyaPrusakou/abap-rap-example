@@ -5,7 +5,7 @@
    <SRVD>
     <NAME>ZPRU_PURCORDERHDR_WEB_API</NAME>
     <TYPE>SRVD/SRV</TYPE>
-    <DESCRIPTION>Purchase Order Odata V4 UI</DESCRIPTION>
+    <DESCRIPTION>Purchase Order Odata V4 API</DESCRIPTION>
     <LANGUAGE>EN</LANGUAGE>
     <MASTER_LANGUAGE>EN</MASTER_LANGUAGE>
     <SOURCE_URI>./zpru_purcorderhdr_web_api/source/main</SOURCE_URI>

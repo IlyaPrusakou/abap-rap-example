@@ -25,6 +25,8 @@ define root view entity Zpru_PurcOrderHdr_ODATA_Proj
       orderDate,
       supplierId,
       supplierName,
+      @Consumption.valueHelpDefinition: [{  entity: {   name: 'ZPRU_I_BUYER' , 
+                                                        element: 'buyerId'  }     }]
       buyerId,
       buyerName,
       @Semantics.amount.currencyCode : 'headerCurrency'

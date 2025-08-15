@@ -173,30 +173,34 @@ CLASS lhc_OrderTP IMPLEMENTATION.
 
       IF <ls_instance>-status = zpru_if_m_po=>cs_status-archived.
         APPEND INITIAL LINE TO result ASSIGNING FIELD-SYMBOL(<ls_result>).
-        <ls_result>-%is_draft       = <ls_result>-%is_draft.
-        <ls_result>-%pid            = <ls_result>-%pid.
-        <ls_result>-purchaseorderid = <ls_result>-purchaseOrderId.
+        <ls_result>-%is_draft       = <ls_key>-%is_draft.
+        <ls_result>-%pid            = <ls_key>-%pid.
+        <ls_result>-purchaseorderid = <ls_key>-purchaseOrderId.
         <ls_result>-%update         = if_abap_behv=>auth-unauthorized.
         <ls_result>-%delete         = if_abap_behv=>auth-unauthorized.
         <ls_result>-%action-edit               = if_abap_behv=>auth-unauthorized.
         <ls_result>-%action-checkorder         = if_abap_behv=>auth-unauthorized.
-        <ls_result>-%action-changestatus       = if_abap_behv=>auth-unauthorized.
+*        <ls_result>-%action-changestatus       = if_abap_behv=>auth-unauthorized. " exclude this action
         <ls_result>-%action-createfromtemplate = if_abap_behv=>auth-unauthorized.
 
-        APPEND INITIAL LINE TO failed-ordertp ASSIGNING <ls_failed>.
-        <ls_failed>-%tky = <ls_instance>-%tky.
-        <ls_failed>-%fail-cause = if_abap_behv=>cause-unauthorized.
+        IF requested_authorizations-%action-Edit = if_abap_behv=>mk-on or
+           requested_authorizations-%delete = if_abap_behv=>mk-on.
+          APPEND INITIAL LINE TO failed-ordertp ASSIGNING <ls_failed>.
+          <ls_failed>-%tky = <ls_instance>-%tky.
+          <ls_failed>-%fail-cause = if_abap_behv=>cause-unauthorized.
 
-        APPEND INITIAL LINE TO reported-ordertp ASSIGNING FIELD-SYMBOL(<lo_order>).
-        <lo_order>-%tky = <ls_instance>-%tky.
-        <lo_order>-%msg = new_message( id       = zpru_if_m_po=>gc_po_message_class
-                                       number   = '004'
-                                       severity = if_abap_behv_message=>severity-error ).
+          APPEND INITIAL LINE TO reported-ordertp ASSIGNING FIELD-SYMBOL(<lo_order>).
+          <lo_order>-%tky = <ls_instance>-%tky.
+          <lo_order>-%msg = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                         number   = '004'
+                                         severity = if_abap_behv_message=>severity-error ).
+        ENDIF.
+
       ELSE.
         APPEND INITIAL LINE TO result ASSIGNING <ls_result>.
-        <ls_result>-%is_draft       = <ls_result>-%is_draft.
-        <ls_result>-%pid            = <ls_result>-%pid.
-        <ls_result>-purchaseorderid = <ls_result>-purchaseOrderId.
+        <ls_result>-%is_draft       = <ls_key>-%is_draft.
+        <ls_result>-%pid            = <ls_key>-%pid.
+        <ls_result>-purchaseorderid = <ls_key>-purchaseOrderId.
         <ls_result>-%update         = if_abap_behv=>auth-allowed.
         <ls_result>-%delete         = if_abap_behv=>auth-allowed.
         <ls_result>-%action-edit               = if_abap_behv=>auth-allowed.
@@ -806,12 +810,13 @@ CLASS lhc_OrderTP IMPLEMENTATION.
         CONTINUE.
       ENDIF.
 
-      IF <ls_instance>-status = zpru_if_m_po=>cs_status-archived.
+      IF <ls_instance>-status = zpru_if_m_po=>cs_status-completed.
         APPEND INITIAL LINE TO result ASSIGNING FIELD-SYMBOL(<ls_result>).
-        <ls_result>-%is_draft       = <ls_result>-%is_draft.
-        <ls_result>-%pid            = <ls_result>-%pid.
-        <ls_result>-purchaseorderid = <ls_result>-purchaseOrderId.
+        <ls_result>-%is_draft       = <ls_key>-%is_draft.
+        <ls_result>-%pid            = <ls_key>-%pid.
+        <ls_result>-purchaseorderid = <ls_key>-purchaseOrderId.
         <ls_result>-%features-%field-PaymentTerms = if_abap_behv=>fc-f-read_only.
+        <ls_result>-%features-%delete             = if_abap_behv=>fc-o-disabled.
       ENDIF.
     ENDLOOP.
   ENDMETHOD.
@@ -1872,39 +1877,8 @@ CLASS lsc_ZPRU_PURCORDERHDR_TP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD cleanup.
-*  " Example: Clear temporary data and release locks
-*
-*  " Clear temporary data
-*  CLEAR create.
-*  CLEAR update.
-*  CLEAR delete.
-*
-*  " Release any locks held on entities
-*  TRY.
-*      CALL FUNCTION 'DEQUEUE_ALL'.
-*    CATCH cx_root INTO DATA(lx_error).
-*      " Log the error if lock release fails
-*      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
-*      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
-*                                   number   = '999'
-*                                   severity = if_abap_behv_message=>severity-error ).
-*  ENDTRY.
-*
-*  " Additional cleanup logic can be added here
   ENDMETHOD.
 
   METHOD cleanup_finalize.
-*  " Log a message indicating cleanup finalization
-*  APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
-*  <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
-*                               number   = '998'
-*                               severity = if_abap_behv_message=>severity-info ).
-*
-*  " Clear any remaining temporary data
-*  CLEAR create.
-*  CLEAR update.
-*  CLEAR delete.
-*
-*  " Additional finalization logic can be added here if needed
   ENDMETHOD.
 ENDCLASS.

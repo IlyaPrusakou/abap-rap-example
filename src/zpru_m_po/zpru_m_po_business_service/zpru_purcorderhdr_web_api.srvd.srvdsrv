@@ -1,4 +1,4 @@
-@EndUserText.label: 'Purchase Order Odata V4 UI'
+@EndUserText.label: 'Purchase Order Odata V4 API'
 @AbapCatalog.extensibility.extensible: true
 define service ZPRU_PURCORDERHDR_WEB_API
   provider contracts odata_v4_webapi, odata_v2_webapi {

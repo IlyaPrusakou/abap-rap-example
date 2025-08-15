@@ -18,10 +18,6 @@ INTERFACE zpru_if_m_po
                road TYPE zpru_de_shipping_meth VALUE space,
              END OF cs_shipping_method.
 
-  CONSTANTS: BEGIN OF cs_command,
-               sendToAzure TYPE abp_behv_cid VALUE `$sendToAzure`,
-             END OF cs_command.
-
   CONSTANTS: BEGIN OF cs_supplier,
                sup1        TYPE zpru_de_supplier VALUE `SUP1`,
                sup2        TYPE zpru_de_supplier VALUE `SUP2`,

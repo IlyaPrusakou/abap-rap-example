@@ -30,7 +30,7 @@ changedocuments master ( ZPRU_PURC_ORDER )
 
   create ( precheck );
   update ( precheck );
-  delete ( precheck );
+  delete ( precheck, features : instance );
   association _items_tp { create; with draft; }
   association _text_tp { create( precheck ); with draft; } // there are example implementation for precheck
 
