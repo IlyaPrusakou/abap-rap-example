@@ -1,0 +1,126 @@
+unmanaged implementation in class zbp_pru_u_purcorderhdr_tp unique;
+strict ( 2 );
+with draft;
+
+define behavior for ZPRU_U_PURCORDERHDR_TP alias OrderTP
+draft table zpru_upo_draft
+lock master
+total etag lastChanged
+authorization master ( global, instance )
+etag master lastChanged
+{
+
+  field ( readonly : update ) purchaseOrderId, headerCurrency;
+  field ( mandatory ) supplierId, deliveryDate, buyerId;
+  field ( readonly ) status, buyerName, supplierName, totalAmount;
+  field ( features : instance ) paymentTerms;
+
+  create ( precheck );
+  update ( precheck );
+  delete ( precheck, features : instance );
+  association _items_tp { create; with draft; }
+
+  draft action Discard with additional implementation;
+  draft action Activate with additional implementation optimized;
+  draft action Resume with additional implementation;
+  draft action Edit with additional implementation;
+  draft determine action Prepare
+  {
+    determination ( always ) calcTotalAmount;
+    determination ( always ) setControlTimestamp;
+    determination ( always ) ItemTP~findWarehouseLocation;
+    validation ( always ) checkDates;
+    validation ( always ) checkHeaderCurrency;
+    validation ( always ) checkSupplier;
+    validation ( always ) checkBuyer;
+    validation ( always ) ItemTP~checkQuantity;
+    validation ( always ) ItemTP~checkItemCurrency;
+  }
+
+  internal action revalidatePricingRules result [0..1] Zpru_D_Total_Amount;
+  static action sendOrderStatisticToAzure parameter Zpru_D_Azure_Location;
+  action ( precheck ) ChangeStatus deep parameter Zpru_D_New_Status;
+  factory action createFromTemplate parameter Zpru_D_Order_Template [1];
+
+  internal function isSupplierBlacklisted result [0..1] Zpru_D_SupplierInBlackList;
+  static function getMajorSupplier result [0..*] Zpru_D_ApprovedSupplier;
+  function getStatusHistory deep result [0..*] ZPRU_D_HistoryRoot;
+  function getAllItems result selective [0..*] entity Zpru_PurcOrderItem_tp; //QQQ CHECK DUPLICATE ENTRIES
+
+  validation checkDates on save { create; field orderDate, deliveryDate; }
+  validation checkHeaderCurrency on save { create; }
+  validation checkSupplier on save { create; update; }
+  validation checkBuyer on save { create; update; }
+  determination recalculateShippingMethod on modify { field supplierId; }
+  determination determineNames on modify { field supplierId, buyerId; }
+  determination setControlTimestamp on save { create; }
+  determination calcTotalAmount on save { create; update; }
+
+  event orderCreated deep parameter Zpru_PurcOrderHdr_Abstract;
+
+  mapping for zpru_purc_order corresponding
+    {
+      purchaseOrderId  = purchase_order_id;
+      orderDate        = order_date;
+      supplierId       = supplier_id;
+      supplierName     = supplier_name;
+      buyerId          = buyer_id;
+      buyerName        = buyer_name;
+      totalAmount      = total_amount;
+      headerCurrency   = header_currency;
+      deliveryDate     = delivery_date;
+      status           = status;
+      paymentTerms     = payment_terms;
+      shippingMethod   = shipping_method;
+      controlTimestamp = control_timestamp;
+      createdBy        = created_by;
+      createOn         = create_on;
+      changedBy        = changed_by;
+      changedOn        = changed_on;
+      lastChanged      = last_changed;
+    }
+
+}
+
+define behavior for ZPRU_U_PURCORDERITEM_TP alias ItemTP
+draft table zpru_u_itm_draft
+lock dependent by _header_tp
+authorization dependent by _header_tp
+etag dependent by _header_tp
+{
+
+  field ( readonly ) totalPrice, warehouseLocation, itemNumber;
+  field ( readonly : update ) purchaseOrderId, itemId, productId, itemCurrency, unitPrice;
+  field ( mandatory : create ) productId, quantity, unitPrice;
+
+  update;
+  delete;
+  association _header_tp { with draft; }
+  action markAsUrgent;
+  function getInventoryStatus result [1] Zpru_D_InventoryStatus;
+
+  determination calculateTotalPrice on modify { field quantity, unitPrice; }
+  determination findWarehouseLocation on save { create; field productId; }
+  determination writeItemNumber on save { create; }
+  validation checkQuantity on save { create; update; }
+  validation checkItemCurrency on save { create; }
+
+  mapping for zpru_po_item corresponding
+    {
+      itemId            = item_id;
+      purchaseOrderId   = purchase_order_id;
+      itemNumber        = item_number;
+      productId         = product_id;
+      productName       = product_name;
+      quantity          = quantity;
+      unitPrice         = unit_price;
+      totalPrice        = total_price;
+      deliveryDate      = delivery_date;
+      warehouseLocation = warehouse_location;
+      itemCurrency      = item_currency;
+      createdBy         = created_by;
+      createOn          = create_on;
+      changedBy         = changed_by;
+      changedOn         = changed_on;
+    }
+}
