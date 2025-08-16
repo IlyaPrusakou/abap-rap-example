@@ -1,6 +1,7 @@
 @AccessControl.authorizationCheck: #NOT_REQUIRED
 @EndUserText.label: 'Order Item Projection'
 @Metadata.ignorePropagatedAnnotations: true
+@Metadata.allowExtensions: true
 define view entity ZPRU_U_PURCORDERITEM_PROJ 
 as projection on ZPRU_U_PURCORDERITEM_TP
 {

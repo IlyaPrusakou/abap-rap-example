@@ -41,15 +41,15 @@ annotate entity ZPRU_U_PURCORDERHDR_PROJ
                 label:           'Administrative Data',
                 parentId:        'Facet1-ID',
                 targetQualifier: 'Fieldgroup3',
-                position:         30 }
+                position:         30 },
 
-//              {
-//                purpose:  #STANDARD,
-//                type:     #LINEITEM_REFERENCE,
-//                label:    'Purchase Order Items',
-//                position: 40,
-//                targetElement: '_items_tp'
-//              }
+              {
+                purpose:  #STANDARD,
+                type:     #LINEITEM_REFERENCE,
+                label:    'Purchase Order Items',
+                position: 40,
+                targetElement: '_items_tp'
+              }
   ]
 
   // Facets end
