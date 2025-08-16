@@ -1,0 +1,6 @@
+@EndUserText.label: 'Custome Entity Order UI'
+define service ZPRU_CE_PURCORDERHDR_UI
+  provider contracts odata_v4_ui, odata_v2_ui {
+  expose ZPRU_CE_PURCORDERHDR_TP   as purchaseOrder;
+  expose ZPRU_CE_PURCORDER_ITEM_TP as purchaseItem;
+}

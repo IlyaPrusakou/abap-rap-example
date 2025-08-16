@@ -1,0 +1,75 @@
+managed with unmanaged save and cleanup with full data
+implementation  in class zbp_pru_tech_orderhdr_tp unique ;
+strict ( 2 );
+
+define behavior for ZPRU_TECH_ORDERHDR_TP alias OrderTP
+lock master
+authorization master ( global, instance )
+etag master lastChanged
+{
+
+  field ( readonly : update ) purchaseOrderId;
+
+  create;
+  update;
+  delete;
+  association _items_tp { create; }
+
+  mapping for zpru_purc_order corresponding
+    {
+      purchaseOrderId  = purchase_order_id;
+      orderDate        = order_date;
+      supplierId       = supplier_id;
+      supplierName     = supplier_name;
+      buyerId          = buyer_id;
+      buyerName        = buyer_name;
+      totalAmount      = total_amount;
+      headerCurrency   = header_currency;
+      deliveryDate     = delivery_date;
+      status           = status;
+      paymentTerms     = payment_terms;
+      shippingMethod   = shipping_method;
+      controlTimestamp = control_timestamp;
+      createdBy        = created_by;
+      createOn         = create_on;
+      changedBy        = changed_by;
+      changedOn        = changed_on;
+      lastChanged      = last_changed;
+    }
+
+
+
+}
+
+define behavior for ZPRU_TECH_ORDERITEM_TP alias ItemTP
+lock dependent by _header_tp
+authorization dependent by _header_tp
+//etag master <field_name>
+{
+
+  field ( readonly : update ) purchaseOrderId, itemId;
+
+  update;
+  delete;
+  association _header_tp;
+
+  mapping for zpru_po_item corresponding
+    {
+      itemId            = item_id;
+      purchaseOrderId   = purchase_order_id;
+      itemNumber        = item_number;
+      productId         = product_id;
+      productName       = product_name;
+      quantity          = quantity;
+      unitPrice         = unit_price;
+      totalPrice        = total_price;
+      deliveryDate      = delivery_date;
+      warehouseLocation = warehouse_location;
+      itemCurrency      = item_currency;
+      createdBy         = created_by;
+      createOn          = create_on;
+      changedBy         = changed_by;
+      changedOn         = changed_on;
+    }
+
+}
