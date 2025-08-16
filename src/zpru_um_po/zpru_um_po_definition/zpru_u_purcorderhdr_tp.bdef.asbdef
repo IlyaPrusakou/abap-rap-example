@@ -3,7 +3,7 @@ strict ( 2 );
 with draft;
 
 define behavior for ZPRU_U_PURCORDERHDR_TP alias OrderTP
-draft table zpru_upo_draft
+draft table zpru_upo_draft query zpru_u_order_draft_query
 lock master
 total etag lastChanged
 authorization master ( global, instance )
@@ -83,7 +83,7 @@ etag master lastChanged
 }
 
 define behavior for ZPRU_U_PURCORDERITEM_TP alias ItemTP
-draft table zpru_u_itm_draft
+draft table zpru_u_itm_draft query zpru_u_item_draft_query
 lock dependent by _header_tp
 authorization dependent by _header_tp
 etag dependent by _header_tp

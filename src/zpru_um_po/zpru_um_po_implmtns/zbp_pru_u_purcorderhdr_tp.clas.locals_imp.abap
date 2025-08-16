@@ -19,10 +19,8 @@ ENDINTERFACE.
 
 CLASS lcl_buffer DEFINITION.
   PUBLIC SECTION.
-    " Structure and internal table types for the internal table serving
-    " as transactional buffers for the root and child entities
     TYPES: BEGIN OF gty_buffer,
-             instance TYPE zpru_u_purcorderhdr_tp,
+             instance TYPE zpru_u_purcorderhdr_tp, "qqq use your Transactional CDS
              cid      TYPE string,
              changed  TYPE abap_bool,
              deleted  TYPE abap_bool,
@@ -30,35 +28,33 @@ CLASS lcl_buffer DEFINITION.
            END OF gty_buffer.
 
     TYPES: BEGIN OF gty_buffer_child,
-             instance   TYPE zpru_u_purcorderitem_tp,
+             instance   TYPE zpru_u_purcorderitem_tp, "qqq use your Transactional CDS
              cid_ref    TYPE string,
              cid_target TYPE string,
              changed    TYPE abap_bool,
+             deleted    TYPE abap_bool,
              is_draft   TYPE abp_behv_flag,
            END OF gty_buffer_child.
 
     TYPES gtt_buffer       TYPE TABLE OF gty_buffer WITH EMPTY KEY.
     TYPES gtt_buffer_child TYPE TABLE OF gty_buffer_child WITH EMPTY KEY.
 
-    " Internal tables serving as transactional buffers for the root and child entities
     CLASS-DATA root_buffer  TYPE STANDARD TABLE OF gty_buffer WITH EMPTY KEY.
     CLASS-DATA child_buffer TYPE STANDARD TABLE OF gty_buffer_child WITH EMPTY KEY.
-    CLASS-DATA ts1          TYPE timestampl.
-    CLASS-DATA ts2          TYPE timestampl.
 
-    " Structure and internal table types to include the keys for buffer preparation methods
     TYPES: BEGIN OF root_keys,
-             purchaseOrderID TYPE zpru_u_purcorderhdr_tp-purchaseOrderId,
+             purchaseOrderID TYPE zpru_u_purcorderhdr_tp-purchaseOrderId, "qqq use your key fields
+             is_draft        TYPE abp_behv_flag,
            END OF root_keys.
     TYPES: BEGIN OF child_keys,
-             purchaseOrderId TYPE zpru_u_purcorderitem_tp-purchaseOrderId,
+             purchaseOrderId TYPE zpru_u_purcorderitem_tp-purchaseOrderId, "qqq use your key fields
              itemId          TYPE zpru_u_purcorderitem_tp-itemId,
+             is_draft        TYPE abp_behv_flag,
              full_key        TYPE abap_bool,
            END OF child_keys.
     TYPES tt_root_keys  TYPE TABLE OF root_keys WITH EMPTY KEY.
     TYPES tt_child_keys TYPE TABLE OF child_keys WITH EMPTY KEY.
 
-    " Buffer preparation methods
     CLASS-METHODS prep_root_buffer
       IMPORTING !keys TYPE tt_root_keys.
 
@@ -69,102 +65,158 @@ ENDCLASS.
 
 
 CLASS lcl_buffer IMPLEMENTATION.
-  " Buffer preparation for the root entity based on the requested key values
   METHOD prep_root_buffer.
-    DATA ls_line TYPE zpru_u_purcorderhdr_tp.
+    DATA ls_line TYPE zpru_u_purcorderhdr_tp. "qqq use your Transactional CDS
+
+    READ ENTITIES OF zpru_u_purcorderhdr_tp " qqq use your base BDEF
+    ENTITY OrderTP
+    ALL FIELDS WITH VALUE #( FOR <ls_drf>
+                             IN keys
+                             WHERE ( is_draft = if_abap_behv=>mk-on )
+                             ( purchaseOrderId = <ls_drf>-purchaseorderid
+                               %is_draft       = <ls_drf>-is_draft  ) )
+    RESULT DATA(lt_draft_buffer).
 
     LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_buffer>).
-      " Logic:
-      "- Line with the specific key values exists in the buffer for the root entity
-      "- If it is true: Do nothing, buffer is prepared for the specific instance.
-      "- Note: If the line is marked as deleted, the buffer should not be filled anew with the data.
-      IF line_exists( lcl_buffer=>root_buffer[ instance-purchaseOrderId = <ls_buffer>-purchaseorderid ] ).
+
+      IF line_exists( lcl_buffer=>root_buffer[ instance-purchaseOrderId = <ls_buffer>-purchaseorderid
+                                               is_draft                 = <ls_buffer>-is_draft ] ).
         " do nothing
       ELSE.
-        " Checking if entry exists in the database table of the root entity based on the key value
-        SELECT SINGLE @abap_true FROM Zpru_PurcOrderHdr
-          WHERE purchaseorderid = @<ls_buffer>-purchaseorderid
-          INTO @DATA(lv_exists).
-        IF lv_exists = abap_true.
-          " If entry exists, retrieve it based on the shared key value
-          SELECT SINGLE * FROM Zpru_PurcOrderHdr
+        IF <ls_buffer>-is_draft = if_abap_behv=>mk-on.
+          SELECT SINGLE @abap_true FROM @lt_draft_buffer AS draft_buffer
             WHERE purchaseorderid = @<ls_buffer>-purchaseorderid
-            INTO CORRESPONDING FIELDS OF @ls_line.
-          IF sy-subrc = 0.
-            " Adding line to the root buffer
-            APPEND VALUE #( instance = ls_line ) TO lcl_buffer=>root_buffer.
+            INTO @DATA(lv_exists_d).
+          IF lv_exists_d = abap_true.
+            SELECT SINGLE * FROM @lt_draft_buffer AS draft_buffer
+              WHERE purchaseorderid = @<ls_buffer>-purchaseorderid
+              INTO CORRESPONDING FIELDS OF @ls_line.
+            IF sy-subrc = 0.
+              APPEND VALUE #( instance = ls_line ) TO lcl_buffer=>root_buffer ASSIGNING FIELD-SYMBOL(<ls_just_inserted>).
+              <ls_just_inserted>-is_draft = if_abap_behv=>mk-on.
+            ENDIF.
+          ENDIF.
+        ELSE.
+          SELECT SINGLE @abap_true FROM Zpru_PurcOrderHdr  " use your base CDS or Transactional CDS
+            WHERE purchaseorderid = @<ls_buffer>-purchaseorderid
+            INTO @DATA(lv_exists).
+          IF lv_exists = abap_true.
+            SELECT SINGLE * FROM Zpru_PurcOrderHdr " use your base CDS or Transactional CDS
+              WHERE purchaseorderid = @<ls_buffer>-purchaseorderid
+              INTO CORRESPONDING FIELDS OF @ls_line.
+            IF sy-subrc = 0.
+              APPEND VALUE #( instance = ls_line ) TO lcl_buffer=>root_buffer ASSIGNING <ls_just_inserted>.
+              <ls_just_inserted>-is_draft = if_abap_behv=>mk-off.
+            ENDIF.
           ENDIF.
         ENDIF.
       ENDIF.
     ENDLOOP.
   ENDMETHOD.
 
-  " Buffer preparation for the child entity based on the requested key values
   METHOD prep_child_buffer.
+
+    DATA lt_ch_tab  TYPE TABLE OF zpru_u_purcorderitem_tp WITH EMPTY KEY. " qqq use your Transactional CDS
+    DATA ls_line_ch TYPE zpru_u_purcorderitem_tp. " qqq use your Transactional CDS
+
+    READ ENTITIES OF zpru_u_purcorderhdr_tp " qqq use your base bdef
+    ENTITY OrderTP BY \_items_tp
+    ALL FIELDS WITH VALUE #( FOR <ls_drf>
+                             IN keys
+                             WHERE ( is_draft = if_abap_behv=>mk-on )
+                             ( purchaseOrderId = <ls_drf>-purchaseorderid
+                               %is_draft       = <ls_drf>-is_draft  ) )
+    RESULT DATA(lt_draft_buffer).
+
     LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_buffer_ch>).
 
-      DATA lt_ch_tab  TYPE TABLE OF zpru_u_purcorderitem_tp WITH EMPTY KEY.
-      DATA ls_line_ch TYPE zpru_u_purcorderitem_tp.
-
-      " The full_key flag is in this example only relevant if a read operation is executed on the child entity directly
-      " and all key values should be considered for the data retrieval from the database table.
       IF <ls_buffer_ch>-full_key = abap_true.
-        " Logic:
-        "- Line with specific key values exists in the buffer for the child entity
-        "- If it is true: Do nothing, buffer is prepared for the specific instance.
         IF line_exists( lcl_buffer=>child_buffer[ instance-purchaseOrderId = <ls_buffer_ch>-purchaseOrderId
-                                                  instance-itemId          = <ls_buffer_ch>-itemId ] ).
+                                                  instance-itemId          = <ls_buffer_ch>-itemId
+                                                  is_draft                 = <ls_buffer_ch>-is_draft ] ).
           " do nothing
         ELSE.
-          " Checking if entry exists in the database table of the child entity based on the shared key value
-          SELECT SINGLE @abap_true FROM Zpru_PurcOrderItem
-            WHERE purchaseOrderId = @<ls_buffer_ch>-purchaseOrderId
-              AND itemId          = @<ls_buffer_ch>-itemId
-            INTO @DATA(lv_exists).
-          " If entry exists, retrieve all entries based on the key values
-          IF lv_exists = abap_true.
-
-            SELECT SINGLE * FROM Zpru_PurcOrderItem
+          IF <ls_buffer_ch>-is_draft = if_abap_behv=>mk-on.
+            SELECT SINGLE @abap_true FROM @lt_draft_buffer AS draft_buffer
               WHERE purchaseOrderId = @<ls_buffer_ch>-purchaseOrderId
                 AND itemId          = @<ls_buffer_ch>-itemId
-              INTO CORRESPONDING FIELDS OF @ls_line_ch.
+              INTO @DATA(lv_exists_d).
+            IF lv_exists_d = abap_true.
 
-            IF sy-subrc = 0.
-              " Adding line to the child buffer if no line exists with all key values
-              APPEND VALUE #( instance = ls_line_ch ) TO lcl_buffer=>child_buffer.
+              SELECT SINGLE * FROM @lt_draft_buffer AS draft_buffer
+                WHERE purchaseOrderId = @<ls_buffer_ch>-purchaseOrderId
+                  AND itemId          = @<ls_buffer_ch>-itemId
+                INTO CORRESPONDING FIELDS OF @ls_line_ch.
+
+              IF sy-subrc = 0.
+                APPEND VALUE #( instance = ls_line_ch ) TO lcl_buffer=>child_buffer ASSIGNING FIELD-SYMBOL(<ls_just_inserted>).
+                <ls_just_inserted>-is_draft = if_abap_behv=>mk-on.
+              ENDIF.
+            ENDIF.
+          ELSE.
+            SELECT SINGLE @abap_true FROM Zpru_PurcOrderItem  " qqq use your base CDS or Transactional CDS
+              WHERE purchaseOrderId = @<ls_buffer_ch>-purchaseOrderId
+                AND itemId          = @<ls_buffer_ch>-itemId
+              INTO @DATA(lv_exists).
+            IF lv_exists = abap_true.
+              SELECT SINGLE * FROM Zpru_PurcOrderItem " qqq use your base CDS or Transactional CDS
+                WHERE purchaseOrderId = @<ls_buffer_ch>-purchaseOrderId
+                  AND itemId          = @<ls_buffer_ch>-itemId
+                INTO CORRESPONDING FIELDS OF @ls_line_ch.
+
+              IF sy-subrc = 0.
+                APPEND VALUE #( instance = ls_line_ch ) TO lcl_buffer=>child_buffer ASSIGNING <ls_just_inserted>.
+                <ls_just_inserted>-is_draft = if_abap_behv=>mk-off.
+              ENDIF.
             ENDIF.
           ENDIF.
         ENDIF.
 
       ELSE.
-
-        " Logic:
-        "- Line with specific keys exists in the buffer for the root entity and is marked for deletion
-        "- If all is true: Doing nothing, buffer is prepared for the specific instance.
-        "- Else: Retrieving all lines from the database table of the child entity having the shared key
-        IF     line_exists( lcl_buffer=>root_buffer[ instance-purchaseOrderId = <ls_buffer_ch>-purchaseorderid ] )
-           AND VALUE #( lcl_buffer=>root_buffer[ instance-purchaseOrderId = <ls_buffer_ch>-purchaseOrderId ]-deleted OPTIONAL ) IS NOT INITIAL.
+        IF     line_exists( lcl_buffer=>root_buffer[ instance-purchaseOrderId = <ls_buffer_ch>-purchaseorderid
+                                                     is_draft                 = <ls_buffer_ch>-is_draft ] )
+           AND VALUE #( lcl_buffer=>root_buffer[ instance-purchaseOrderId = <ls_buffer_ch>-purchaseOrderId
+                                                 is_draft                 = <ls_buffer_ch>-is_draft ]-deleted OPTIONAL ) IS NOT INITIAL.
           " do nothing
         ELSE.
-          " Checking if entry exists in the database table of the child entity based on the shared key value
-          SELECT SINGLE @abap_true FROM Zpru_PurcOrderItem
-            WHERE purchaseOrderId = @<ls_buffer_ch>-purchaseOrderId
-            INTO @DATA(lv_exists_ch).
-          " If entry exists, retrieve all entries based on the shared key value
-          IF lv_exists_ch = abap_true.
-            SELECT * FROM Zpru_PurcOrderItem
+          IF <ls_buffer_ch>-is_draft = if_abap_behv=>mk-on.
+            SELECT SINGLE @abap_true FROM @lt_draft_buffer AS draft_buffer
               WHERE purchaseOrderId = @<ls_buffer_ch>-purchaseOrderId
-              INTO CORRESPONDING FIELDS OF TABLE @lt_ch_tab.
+              INTO @DATA(lv_exists_ch_D).
+            IF lv_exists_ch_D = abap_true.
+              SELECT * FROM @lt_draft_buffer AS draft_buffer
+                WHERE purchaseOrderId = @<ls_buffer_ch>-purchaseOrderId
+                INTO CORRESPONDING FIELDS OF TABLE @lt_ch_tab.
+              IF sy-subrc = 0.
+                LOOP AT lt_ch_tab ASSIGNING FIELD-SYMBOL(<ls_ch>).
+                  IF NOT line_exists( lcl_buffer=>child_buffer[ instance-purchaseOrderId = <ls_ch>-purchaseOrderId
+                                                                instance-itemId          = <ls_ch>-itemId
+                                                                is_draft                 = if_abap_behv=>mk-on ] ).
+                    APPEND VALUE #( instance = <ls_ch> ) TO lcl_buffer=>child_buffer ASSIGNING <ls_just_inserted>.
+                    <ls_just_inserted>-is_draft = if_abap_behv=>mk-on.
+                  ENDIF.
+                ENDLOOP.
+              ENDIF.
+            ENDIF.
+          ELSE.
 
-            IF sy-subrc = 0.
-
-              LOOP AT lt_ch_tab ASSIGNING FIELD-SYMBOL(<ls_ch>).
-                " Adding line to the child buffer if no line exists with all key values
-                IF NOT line_exists( lcl_buffer=>child_buffer[ instance-purchaseOrderId = <ls_ch>-purchaseOrderId
-                                                              instance-itemId          = <ls_ch>-itemId ] ).
-                  APPEND VALUE #( instance = <ls_ch> ) TO lcl_buffer=>child_buffer.
-                ENDIF.
-              ENDLOOP.
+            SELECT SINGLE @abap_true FROM Zpru_PurcOrderItem " qqq use your base or Transactional CDS
+              WHERE purchaseOrderId = @<ls_buffer_ch>-purchaseOrderId
+              INTO @DATA(lv_exists_ch).
+            IF lv_exists_ch = abap_true.
+              SELECT * FROM Zpru_PurcOrderItem   " qqq use your base or Transactional CDS
+                WHERE purchaseOrderId = @<ls_buffer_ch>-purchaseOrderId
+                INTO CORRESPONDING FIELDS OF TABLE @lt_ch_tab.
+              IF sy-subrc = 0.
+                LOOP AT lt_ch_tab ASSIGNING <ls_ch>.
+                  IF NOT line_exists( lcl_buffer=>child_buffer[ instance-purchaseOrderId = <ls_ch>-purchaseOrderId
+                                                                instance-itemId          = <ls_ch>-itemId
+                                                                is_draft                 = if_abap_behv=>mk-off ] ).
+                    APPEND VALUE #( instance = <ls_ch> ) TO lcl_buffer=>child_buffer ASSIGNING <ls_just_inserted>.
+                    <ls_just_inserted>-is_draft = if_abap_behv=>mk-off.
+                  ENDIF.
+                ENDLOOP.
+              ENDIF.
             ENDIF.
           ENDIF.
         ENDIF.
@@ -292,30 +344,26 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD create.
-    " Preparing the transactional buffer based on the input BDEF derived type.
-    lcl_buffer=>prep_root_buffer( CORRESPONDING #( entities ) ).
+    lcl_buffer=>prep_root_buffer( CORRESPONDING #( entities MAPPING is_draft = %is_draft
+                                                                    purchaseorderid = purchaseOrderId ) ).
 
-    " Processing requested entities sequentially
     LOOP AT entities ASSIGNING FIELD-SYMBOL(<ls_create>).
-      " Logic:
-      "- Line with the specific key does not exist in the buffer for the root entity
-      "- Line with the specific key exists in the buffer but it is marked as deleted
-      "- If it is true: Add new instance to the buffer and, if needed, remove the instance marked as deleted beforehand
-      IF    NOT line_exists( lcl_buffer=>root_buffer[ instance-purchaseOrderId = <ls_create>-purchaseOrderId ] )
+
+      IF    NOT line_exists( lcl_buffer=>root_buffer[ instance-purchaseOrderId = <ls_create>-purchaseOrderId
+                                                      is_draft                 = <ls_create>-%is_draft ] )
          OR     line_exists( lcl_buffer=>root_buffer[ instance-purchaseOrderId = <ls_create>-purchaseOrderId
+                                                      is_draft                 = <ls_create>-%is_draft
                                                       deleted                  = abap_true ] ).
 
-        " If it exists, removing instance that is marked for deletion from the transactional buffer since it gets replaced by a new one.
-        DELETE lcl_buffer=>root_buffer WHERE instance-purchaseOrderId = VALUE #( lcl_buffer=>root_buffer[
-                                                                                     instance-purchaseOrderId = <ls_create>-purchaseOrderId ]-instance-purchaseOrderId OPTIONAL ) AND deleted = abap_true.
-*        CLEAR lcl_buffer=>ts1.
-*        CLEAR lcl_buffer=>ts2.
-*        GET TIME STAMP FIELD lcl_buffer=>ts1.
-*        lcl_buffer=>ts2 = lcl_buffer=>ts1.
+        DELETE lcl_buffer=>root_buffer WHERE     instance-purchaseOrderId = VALUE #( lcl_buffer=>root_buffer[
+                                                                                         instance-purchaseOrderId = <ls_create>-purchaseOrderId
+                                                                                         is_draft                 = <ls_create>-%is_draft ]-instance-purchaseOrderId OPTIONAL )
+                                             AND is_draft                 = <ls_create>-%is_draft
+                                             AND deleted                  = abap_true.
 
-        " Adding new instance to the transactional buffer by considering %control values
         APPEND VALUE #(
             cid                       = <ls_create>-%cid
+            is_draft                  = <ls_create>-%is_draft
             instance-purchaseOrderId  = <ls_create>-purchaseOrderId
             instance-orderDate        = COND #( WHEN <ls_create>-%control-orderDate <> if_abap_behv=>mk-off
                                                 THEN <ls_create>-orderDate )
@@ -349,41 +397,38 @@ CLASS lhc_OrderTP IMPLEMENTATION.
                                                 THEN <ls_create>-changedBy )
             instance-changedOn        = COND #( WHEN <ls_create>-%control-changedOn <> if_abap_behv=>mk-off
                                                 THEN <ls_create>-changedOn )
-            instance-lastChanged      = COND #( WHEN <ls_create>-%control-lastChanged <> if_abap_behv=>mk-off
-                                                THEN <ls_create>-lastChanged )
+            " qqq make sure that your made you admin fields managed by RAP framework
+            " it is expected that createOn already have been filled by time value
+            " otherwise check semantic annotation on your transactional CDS
+            instance-lastChanged      = <ls_create>-createOn
             changed                   = abap_true
             deleted                   = abap_false ) TO lcl_buffer=>root_buffer.
 
-        " Filling the MAPPED response parameter for the root entity
-        INSERT VALUE #( %cid = <ls_create>-%cid
-                        %key = <ls_create>-%key
-                        %is_draft      = <ls_create>-%is_draft ) INTO TABLE mapped-ordertp.
+        INSERT VALUE #( %cid      = <ls_create>-%cid
+                        %key      = <ls_create>-%key
+                        %is_draft = <ls_create>-%is_draft ) INTO TABLE mapped-ordertp.
 
-        "Fill reported parameter.
-        APPEND VALUE #( %msg      = new_message_with_text(
-                        severity  = if_abap_behv_message=>severity-success
-                       text      = 'create: Ok!' )
-                       purchaseOrderId = <ls_create>-purchaseOrderId
-                       %cid           = <ls_create>-%cid
-                       %is_draft      = <ls_create>-%is_draft
-                     ) TO reported-ordertp.
+        APPEND VALUE #( %msg            = new_message_with_text( severity = if_abap_behv_message=>severity-success
+                                                                 text     = 'create: Ok!' )
+                        purchaseOrderId = <ls_create>-purchaseOrderId
+                        %cid            = <ls_create>-%cid
+                        %is_draft       = <ls_create>-%is_draft ) TO reported-ordertp.
 
       ELSE.
 
-        " Filling FAILED and REPORTED response parameters
         APPEND VALUE #( %cid        = <ls_create>-%cid
                         %key        = <ls_create>-%key
-                        %is_draft      = <ls_create>-%is_draft
+                        %is_draft   = <ls_create>-%is_draft
                         %create     = if_abap_behv=>mk-on
                         %fail-cause = if_abap_behv=>cause-unspecific )
                TO failed-ordertp.
 
-        APPEND VALUE #( %cid    = <ls_create>-%cid
-                        %key    = <ls_create>-%key
-                        %is_draft  = <ls_create>-%is_draft
-                        %create = if_abap_behv=>mk-on
-                        %msg    = new_message_with_text( severity = if_abap_behv_message=>severity-error
-                                                         text     = 'Create operation failed.' ) )
+        APPEND VALUE #( %cid      = <ls_create>-%cid
+                        %key      = <ls_create>-%key
+                        %is_draft = <ls_create>-%is_draft
+                        %create   = if_abap_behv=>mk-on
+                        %msg      = new_message_with_text( severity = if_abap_behv_message=>severity-error
+                                                           text     = 'Create operation failed.' ) )
                TO reported-ordertp.
 
       ENDIF.
@@ -394,21 +439,15 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD update.
-    " Preparing the transactional buffer based on the input BDEF derived type.
-    lcl_buffer=>prep_root_buffer( CORRESPONDING #( entities ) ).
+    lcl_buffer=>prep_root_buffer( CORRESPONDING #( entities MAPPING purchaseorderid = purchaseOrderId
+                                                                    is_draft        = %is_draft ) ).
 
-    " Processing requested entities sequentially
     LOOP AT entities ASSIGNING FIELD-SYMBOL(<ls_update>).
 
-      " Logic:
-      "- Line with the specific key exists in the buffer for the root entity
-      "- Line with the specific key must not be marked as deleted
-      "- If it is true: Updating the buffer based on the input BDEF derived type and considering %control values
       READ TABLE lcl_buffer=>root_buffer
            WITH KEY instance-purchaseOrderId = <ls_update>-purchaseOrderId
-                    deleted                  = abap_false
-           ASSIGNING FIELD-SYMBOL(<ls_up>).
-
+                    is_draft                 = <ls_update>-%is_draft
+                    deleted                  = abap_false ASSIGNING FIELD-SYMBOL(<ls_up>).
       IF sy-subrc = 0.
         <ls_up>-instance-orderDate        = COND #( WHEN <ls_update>-%control-orderDate <> if_abap_behv=>mk-off
                                                     THEN <ls_update>-orderDate
@@ -458,14 +497,14 @@ CLASS lhc_OrderTP IMPLEMENTATION.
         <ls_up>-instance-changedOn        = COND #( WHEN <ls_update>-%control-changedOn <> if_abap_behv=>mk-off
                                                     THEN <ls_update>-changedOn
                                                     ELSE <ls_up>-instance-changedOn ).
-        <ls_up>-instance-lastChanged      = COND #( WHEN <ls_update>-%control-lastChanged <> if_abap_behv=>mk-off
-                                                    THEN <ls_update>-lastChanged
-                                                    ELSE <ls_up>-instance-lastChanged ).
+        " qqq make sure that your made you admin fields managed by RAP framework
+        " it is expected that createOn already have been filled by time value
+        " otherwise check semantic annotation on your transactional CDS
+        <ls_up>-instance-lastChanged      = <ls_update>-changedOn.
         <ls_up>-changed = abap_true.
         <ls_up>-deleted = abap_false.
       ELSE.
 
-        " Filling FAILED and REPORTED response parameters
         APPEND VALUE #( %tky        = <ls_update>-%tky
                         %cid        = <ls_update>-%cid_ref
                         %fail-cause = if_abap_behv=>cause-not_found
@@ -486,36 +525,39 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD delete.
-    " Preparing the transactional buffer based on the input BDEF derived type.
-    lcl_buffer=>prep_root_buffer( CORRESPONDING #( keys ) ).
+    lcl_buffer=>prep_root_buffer( CORRESPONDING #( keys MAPPING purchaseorderid = purchaseOrderId
+                                                                is_draft        = %is_draft ) ).
 
-    " Processing requested keys sequentially
+    lcl_buffer=>prep_child_buffer( CORRESPONDING #( keys MAPPING purchaseorderid = purchaseOrderId
+                                                                 is_draft        = %is_draft ) ).
+
     LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_delete>).
-      " Logic:
-      "- Line exists in the buffer and it is not marked as deleted
-      "- If it is true: Flag the instance as deleted
       READ TABLE lcl_buffer=>root_buffer
            WITH KEY instance-purchaseOrderId = <ls_delete>-purchaseOrderId
-                    deleted                  = abap_false
-           ASSIGNING FIELD-SYMBOL(<ls_del>).
+                    is_draft                 = <ls_delete>-%is_draft
+                    deleted                  = abap_false ASSIGNING FIELD-SYMBOL(<ls_del>).
 
       IF sy-subrc = 0.
-
         <ls_del>-changed = abap_false.
         <ls_del>-deleted = abap_true.
+        " qqq cascade delete
+        LOOP AT lcl_buffer=>child_buffer ASSIGNING FIELD-SYMBOL(<ls_child_del>)
+             WHERE     instance-purchaseOrderId = <ls_del>-instance-purchaseOrderId
+                   AND is_draft                 = <ls_del>-is_draft
+                   AND deleted                  = abap_false.
+          <ls_child_del>-changed = abap_false.
+          <ls_child_del>-deleted = abap_true.
+        ENDLOOP.
       ELSE.
-        " Filling FAILED and REPORTED response parameters
         APPEND VALUE #( %tky        = <ls_delete>-%tky
                         %cid        = <ls_delete>-%cid_ref
                         %fail-cause = if_abap_behv=>cause-not_found
-                        %delete     = if_abap_behv=>mk-on )
-               TO failed-ordertp.
+                        %delete     = if_abap_behv=>mk-on ) TO failed-ordertp.
 
         APPEND VALUE #( %tky = <ls_delete>-%tky
                         %cid = <ls_delete>-%cid_ref
                         %msg = new_message_with_text( severity = if_abap_behv_message=>severity-error
-                                                      text     = 'Delete operation failed.' ) )
-               TO reported-ordertp.
+                                                      text     = 'Delete operation failed.' ) ) TO reported-ordertp.
       ENDIF.
     ENDLOOP.
   ENDMETHOD.
@@ -524,18 +566,14 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD read.
-    " Preparing the transactional buffer based on the input BDEF derived type.
-    lcl_buffer=>prep_root_buffer( CORRESPONDING #( keys ) ).
+    lcl_buffer=>prep_root_buffer( CORRESPONDING #( keys MAPPING purchaseorderid = purchaseOrderId
+                                                                is_draft        = %is_draft ) ).
 
-    " Processing requested keys sequentially
     LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_read>) GROUP BY <ls_read>-%tky.
-      " Logic:
-      "- Line exists in the buffer and it is not marked as deleted
-      "- If it is true: Adding the entries to the buffer based on the input BDEF derived type and considering %control values
       READ TABLE lcl_buffer=>root_buffer
            WITH KEY instance-purchaseOrderId = <ls_read>-purchaseOrderId
-                    deleted                  = abap_false
-           ASSIGNING FIELD-SYMBOL(<ls_r>).
+                    is_draft                 = <ls_read>-%is_draft
+                    deleted                  = abap_false ASSIGNING FIELD-SYMBOL(<ls_r>).
       IF sy-subrc = 0.
 
         APPEND VALUE #( %tky             = <ls_read>-%tky
@@ -571,11 +609,11 @@ CLASS lhc_OrderTP IMPLEMENTATION.
                                                    THEN <ls_r>-instance-changedBy )
                         changedOn        = COND #( WHEN <ls_read>-%control-changedOn <> if_abap_behv=>mk-off
                                                    THEN <ls_r>-instance-changedOn )
+                        " qqq you must return the value, otherwise update will not work
                         lastChanged      = COND #( WHEN <ls_read>-%control-lastChanged <> if_abap_behv=>mk-off
                                                    THEN <ls_r>-instance-lastChanged ) ) TO result.
 
       ELSE.
-        " Filling FAILED and REPORTED response parameters
         APPEND VALUE #( %tky        = <ls_read>-%tky
                         %fail-cause = if_abap_behv=>cause-not_found )
                TO failed-ordertp.
@@ -593,29 +631,26 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD rba_Items_tp.
-    " Preparing the transactional buffers for both the root and child entity based on the input BDEF derived type.
-    lcl_buffer=>prep_root_buffer( CORRESPONDING #( keys_rba ) ).
-    lcl_buffer=>prep_child_buffer( CORRESPONDING #( keys_rba ) ).
+    lcl_buffer=>prep_root_buffer( CORRESPONDING #( keys_rba MAPPING purchaseorderid = purchaseOrderId
+                                                                    is_draft        = %is_draft ) ).
+    lcl_buffer=>prep_child_buffer( CORRESPONDING #( keys_rba MAPPING purchaseorderid = purchaseOrderId
+                                                                    is_draft        = %is_draft ) ).
 
-    " Processing requested keys sequentially
-    LOOP AT keys_rba ASSIGNING FIELD-SYMBOL(<ls_rba>) GROUP BY <ls_rba>-purchaseOrderId.
-      " Logic:
-      "- Line with the shared key value exists in the buffer for the root entity and it is not marked as deleted
-      "- Line with the shared key value exists in the child buffer
-      "- If it is true: Sequentially processing the child buffer entries (the example is set up in a way that there can be multiple entries)
+    LOOP AT keys_rba ASSIGNING FIELD-SYMBOL(<ls_rba>) GROUP BY <ls_rba>-%tky.
       IF     line_exists( lcl_buffer=>root_buffer[ instance-purchaseOrderId = <ls_rba>-purchaseOrderId
+                                                   is_draft                 = <ls_rba>-%is_draft
                                                    deleted                  = abap_false ] )
-         AND line_exists( lcl_buffer=>child_buffer[ instance-purchaseOrderId = <ls_rba>-purchaseOrderId ] ).
+         AND line_exists( lcl_buffer=>child_buffer[ instance-purchaseOrderId = <ls_rba>-purchaseOrderId
+                                                    is_draft                 = <ls_rba>-%is_draft
+                                                    deleted                  = abap_false ] ).
 
-        LOOP AT lcl_buffer=>child_buffer ASSIGNING FIELD-SYMBOL(<ls_ch>) WHERE instance-purchaseOrderId = <ls_rba>-purchaseOrderId.
-
-          " Filling the table for the LINK parameter
+        LOOP AT lcl_buffer=>child_buffer ASSIGNING FIELD-SYMBOL(<ls_ch>) WHERE     instance-purchaseOrderId = <ls_rba>-purchaseOrderId
+                                                                               AND is_draft                 = <ls_rba>-%is_draft
+                                                                               AND deleted                  = abap_false.
           INSERT VALUE #( source-%tky = <ls_rba>-%tky
                           target-%tky = VALUE #( purchaseOrderId = <ls_ch>-instance-purchaseOrderId
-                                                 itemId          = <ls_ch>-instance-itemId ) ) INTO TABLE association_links.
-
-          " Filling the table for the RESULT parameter based on the FULL parameter
-          " Note: If the FULL parameter is initial, only the LINK parameter should be provided
+                                                 itemId          = <ls_ch>-instance-itemId
+                                                 %is_draft       = <ls_ch>-is_draft ) ) INTO TABLE association_links.
           IF result_requested = abap_false.
             CONTINUE.
           ENDIF.
@@ -654,7 +689,6 @@ CLASS lhc_OrderTP IMPLEMENTATION.
 
       ELSE.
 
-        " Filling FAILED and REPORTED response parameters
         APPEND VALUE #( %tky             = <ls_rba>-%tky
                         %fail-cause      = if_abap_behv=>cause-not_found
                         %assoc-_items_tp = if_abap_behv=>mk-on )
@@ -677,30 +711,48 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD cba_Items_tp.
-    " Preparing the transactional buffers for both the root and child entity based on the input BDEF derived type
-    lcl_buffer=>prep_root_buffer( CORRESPONDING #( entities_cba ) ).
-    lcl_buffer=>prep_child_buffer( CORRESPONDING #( entities_cba ) ).
 
-    " Processing requested entities sequentially
-    LOOP AT entities_cba ASSIGNING FIELD-SYMBOL(<ls_cba>) GROUP BY <ls_cba>-purchaseOrderId.
-      " Logic:
-      "- Line with the shared key value exists in the buffer for the root entity and it is not marked as deleted
-      "- If it is true: Sequentially processing the instances in the %target table
+    DATA lt_root_update TYPE TABLE FOR UPDATE zpru_u_purcorderhdr_tp\\OrderTP. " qqq change names on your BDEF
+
+
+    lcl_buffer=>prep_root_buffer( CORRESPONDING #( entities_cba MAPPING purchaseorderid = purchaseorderid
+                                                                        is_draft        = %is_draft ) ).
+    lcl_buffer=>prep_child_buffer( CORRESPONDING #( entities_cba MAPPING purchaseorderid = purchaseorderid
+                                                                        is_draft        = %is_draft ) ).
+    LOOP AT entities_cba ASSIGNING FIELD-SYMBOL(<ls_cba>) GROUP BY <ls_cba>-%tky.
       IF line_exists( lcl_buffer=>root_buffer[ instance-purchaseOrderId = <ls_cba>-purchaseOrderId
+                                               is_draft                 = <ls_cba>-%is_draft
                                                deleted                  = abap_false ] ).
 
         LOOP AT <ls_cba>-%target ASSIGNING FIELD-SYMBOL(<ls_ch>).
 
-          " Adding instance to child buffer if it does not exist there and considering %control values
-          " The example is implemented in a way that the RAP BO consumer need not specify the common key with the root entity.
-          " Plus, the keys of the child entity should not be initial.
-          IF     NOT line_exists( lcl_buffer=>child_buffer[ instance-purchaseOrderId = <ls_cba>-purchaseOrderId
-                                                            instance-itemId          = <ls_ch>-itemId ] )
-             AND     <ls_ch>-itemId IS NOT INITIAL.
+          IF     (    NOT line_exists( lcl_buffer=>child_buffer[ instance-purchaseOrderId = <ls_cba>-purchaseOrderId
+                                                                 is_draft                 = <ls_cba>-%is_draft
+                                                                 instance-itemId          = <ls_ch>-itemId ] )
+                   OR
+                          line_exists( lcl_buffer=>child_buffer[ instance-purchaseOrderId = <ls_cba>-purchaseOrderId
+                                                                 instance-itemId          = <ls_ch>-itemId
+                                                                 is_draft                 = <ls_cba>-%is_draft
+                                                                 deleted                  = abap_true ] ) )
+
+             AND <ls_ch>-itemId IS NOT INITIAL.
+
+            ASSIGN lcl_buffer=>child_buffer[ instance-purchaseOrderId = <ls_cba>-purchaseOrderId
+                                             is_draft                 = <ls_cba>-%is_draft
+                                             instance-itemId          = <ls_ch>-itemId
+                                             deleted                  = abap_true ] TO FIELD-SYMBOL(<ls_deleted_item>).
+            IF sy-subrc = 0.
+              DELETE lcl_buffer=>child_buffer
+                     WHERE     instance-purchaseOrderId = <ls_deleted_item>-instance-purchaseOrderId
+                           AND instance-itemId          = <ls_deleted_item>-instance-itemId
+                           AND is_draft                 = <ls_deleted_item>-is_draft
+                           AND deleted                  = abap_true.
+            ENDIF.
 
             APPEND VALUE #(
                 cid_ref                    = <ls_cba>-%cid_ref
                 cid_target                 = <ls_ch>-%cid
+                is_draft                   = <ls_cba>-%is_draft
                 instance-purchaseOrderId   = <ls_cba>-purchaseOrderId
                 instance-itemId            = <ls_ch>-itemId
                 instance-itemNumber        = COND #( WHEN <ls_ch>-%control-itemNumber <> if_abap_behv=>mk-off
@@ -733,19 +785,22 @@ CLASS lhc_OrderTP IMPLEMENTATION.
                                                      THEN <ls_ch>-changedOn )
                 changed                    = abap_true ) TO lcl_buffer=>child_buffer.
 
-            " Filling MAPPED response parameter
-            INSERT VALUE #( %cid = <ls_ch>-%cid
-                            %key = VALUE #( purchaseOrderId = <ls_cba>-purchaseOrderId
-                                            itemId          = <ls_ch>-itemId ) ) INTO TABLE mapped-itemtp.
+
+            APPEND INITIAL LINE TO lt_root_update ASSIGNING FIELD-SYMBOL(<ls_root_update>).
+            <ls_root_update>-purchaseOrderId = <ls_cba>-purchaseOrderId.
+            <ls_root_update>-%is_draft       = <ls_cba>-%is_draft.
+
+            INSERT VALUE #( %cid      = <ls_ch>-%cid
+                            %is_draft = <ls_cba>-%is_draft
+                            %key      = VALUE #( purchaseOrderId = <ls_cba>-purchaseOrderId
+                                                 itemId          = <ls_ch>-itemId ) ) INTO TABLE mapped-itemtp.
 
           ELSE.
 
-            " Filling FAILED and REPORTED response parameters
             APPEND VALUE #( %cid             = <ls_cba>-%cid_ref
                             %tky             = <ls_cba>-%tky
                             %assoc-_items_tp = if_abap_behv=>mk-on
-                            %fail-cause      = if_abap_behv=>cause-unspecific )
-                   TO failed-ordertp.
+                            %fail-cause      = if_abap_behv=>cause-unspecific ) TO failed-ordertp.
 
             APPEND VALUE #( %cid = <ls_cba>-%cid_ref
                             %tky = <ls_cba>-%tky
@@ -756,8 +811,7 @@ CLASS lhc_OrderTP IMPLEMENTATION.
             APPEND VALUE #( %cid        = <ls_ch>-%cid
                             %key        = VALUE #( purchaseOrderId = <ls_cba>-purchaseOrderId
                                                    itemId          = <ls_ch>-itemId )
-                            %fail-cause = if_abap_behv=>cause-dependency )
-                   TO failed-itemtp.
+                            %fail-cause = if_abap_behv=>cause-dependency ) TO failed-itemtp.
 
             APPEND VALUE #( %cid = <ls_ch>-%cid
                             %key = VALUE #( purchaseOrderId = <ls_cba>-purchaseOrderId
@@ -769,9 +823,23 @@ CLASS lhc_OrderTP IMPLEMENTATION.
           ENDIF.
         ENDLOOP.
 
+        SORT lt_root_update BY purchaseOrderId %is_draft.
+        DELETE ADJACENT DUPLICATES FROM lt_root_update COMPARING purchaseOrderId %is_draft.
+
+        GET TIME STAMP FIELD DATA(lv_now). " qqq if added item -- update etag field
+        LOOP AT lt_root_update ASSIGNING <ls_root_update>.
+          <ls_root_update>-lastChanged = lv_now.
+          <ls_root_update>-%control-lastChanged = if_abap_behv=>mk-on.
+        ENDLOOP.
+
+        IF lt_root_update IS NOT INITIAL.
+          MODIFY ENTITIES OF zpru_u_purcorderhdr_tp  " qqq change on your BDEF
+          IN LOCAL MODE
+          ENTITY OrderTP UPDATE FROM lt_root_update.
+        ENDIF.
+
       ELSE.
 
-        " Filling FAILED and REPORTED response parameters
         APPEND VALUE #( %cid             = <ls_cba>-%cid_ref
                         %tky             = <ls_cba>-%tky
                         %assoc-_items_tp = if_abap_behv=>mk-on
@@ -813,6 +881,70 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD Activate.
+    READ ENTITIES OF zpru_u_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP
+         ALL FIELDS WITH VALUE #( FOR <ls_k1>
+                                  IN keys
+                                  ( purchaseOrderId = <ls_k1>-purchaseOrderId
+                                    %is_draft       = if_abap_behv=>mk-on ) )
+         RESULT DATA(lt_order_draft).
+
+    READ ENTITIES OF zpru_u_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP BY \_items_tp
+         ALL FIELDS WITH VALUE #( FOR <ls_k2>
+                                  IN keys
+                                  ( purchaseOrderId = <ls_k2>-purchaseOrderId
+                                    %is_draft       = if_abap_behv=>mk-on ) )
+         RESULT DATA(lt_items_draft).
+
+    lcl_buffer=>prep_root_buffer( VALUE #( FOR <ls_k3>
+                                           IN keys
+                                           ( purchaseOrderId = <ls_k3>-purchaseOrderId
+                                             is_draft        = if_abap_behv=>mk-off ) ) ).
+
+    lcl_buffer=>prep_child_buffer( VALUE #( FOR <ls_k4>
+                                            IN keys
+                                            ( purchaseOrderId = <ls_k4>-purchaseOrderId
+                                              is_draft        = if_abap_behv=>mk-off ) ) ).
+
+    LOOP AT lt_order_draft ASSIGNING FIELD-SYMBOL(<ls_order_draft>).
+      ASSIGN lcl_buffer=>root_buffer[ instance-purchaseOrderId = <ls_order_draft>-purchaseOrderId
+                                      is_draft                 = if_abap_behv=>mk-off
+                                      deleted                  = abap_false ] TO FIELD-SYMBOL(<ls_buffer_order_active>).
+      IF sy-subrc = 0.
+        <ls_buffer_order_active>-instance = CORRESPONDING #( <ls_order_draft> ).
+      ENDIF.
+
+      ASSIGN lcl_buffer=>root_buffer[ instance-purchaseOrderId = <ls_order_draft>-purchaseOrderId
+                                      is_draft                 = if_abap_behv=>mk-on
+                                      deleted                  = abap_false ] TO FIELD-SYMBOL(<ls_buffer_order_draft>).
+      IF sy-subrc = 0.
+        <ls_buffer_order_draft>-deleted = abap_true.
+      ENDIF.
+
+      LOOP AT lt_items_draft ASSIGNING FIELD-SYMBOL(<ls_item_draft>)
+           WHERE purchaseOrderId = <ls_order_draft>-purchaseOrderId.
+
+        ASSIGN lcl_buffer=>child_buffer[ instance-purchaseOrderId = <ls_item_draft>-purchaseOrderId
+                                         instance-itemId          = <ls_item_draft>-itemId
+                                         is_draft                 = if_abap_behv=>mk-off
+                                         deleted                  = abap_false ] TO FIELD-SYMBOL(<ls_buffer_item_active>).
+        IF sy-subrc = 0.
+          <ls_buffer_item_active>-instance = CORRESPONDING #( <ls_item_draft> ).
+        ENDIF.
+
+        ASSIGN lcl_buffer=>child_buffer[ instance-purchaseOrderId = <ls_item_draft>-purchaseOrderId
+                                         instance-itemId          = <ls_item_draft>-itemId
+                                         is_draft                 = if_abap_behv=>mk-on
+                                         deleted                  = abap_false ] TO FIELD-SYMBOL(<ls_buffer_item_draft>).
+        IF sy-subrc = 0.
+          <ls_buffer_item_draft>-deleted = abap_true.
+        ENDIF.
+      ENDLOOP.
+    ENDLOOP.
+
   ENDMETHOD.
 
   METHOD ChangeStatus.
@@ -825,12 +957,98 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD Discard.
+
+    LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_key>).
+
+      ASSIGN lcl_buffer=>root_buffer[ instance-purchaseOrderId = <ls_key>-purchaseOrderId
+                                      is_draft                 = if_abap_behv=>mk-on
+                                      deleted                  = abap_false ] TO FIELD-SYMBOL(<ls_buffer_order_draft>).
+      IF sy-subrc = 0.
+        <ls_buffer_order_draft>-deleted = abap_true.
+      ENDIF.
+
+      LOOP AT lcl_buffer=>child_buffer ASSIGNING FIELD-SYMBOL(<ls_buffer_item_draft>)
+           WHERE instance-purchaseOrderId = <ls_key>-purchaseOrderId AND
+                 is_draft                 = if_abap_behv=>mk-on AND
+                 deleted                  = abap_false.
+        <ls_buffer_item_draft>-deleted = abap_true.
+      ENDLOOP.
+    ENDLOOP.
+
   ENDMETHOD.
 
   METHOD Edit.
+
+    READ ENTITIES OF zpru_u_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP
+         ALL FIELDS WITH VALUE #( FOR <ls_k1>
+                                  IN keys
+                                  ( purchaseOrderId = <ls_k1>-purchaseOrderId
+                                    %is_draft       = if_abap_behv=>mk-off ) )
+         RESULT DATA(lt_order_active).
+
+    READ ENTITIES OF zpru_u_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP BY \_items_tp
+         ALL FIELDS WITH VALUE #( FOR <ls_k2>
+                                  IN keys
+                                  ( purchaseOrderId = <ls_k2>-purchaseOrderId
+                                    %is_draft       = if_abap_behv=>mk-off ) )
+         RESULT DATA(lt_items_active).
+
+    lcl_buffer=>prep_root_buffer( VALUE #( FOR <ls_k3>
+                                           IN keys
+                                           ( purchaseOrderId = <ls_k3>-purchaseOrderId
+                                             is_draft        = if_abap_behv=>mk-on ) ) ).
+
+    lcl_buffer=>prep_child_buffer( VALUE #( FOR <ls_k4>
+                                            IN keys
+                                            ( purchaseOrderId = <ls_k4>-purchaseOrderId
+                                              is_draft        = if_abap_behv=>mk-on ) ) ).
+
+    LOOP AT lt_order_active ASSIGNING FIELD-SYMBOL(<ls_order_active>).
+      ASSIGN lcl_buffer=>root_buffer[ instance-purchaseOrderId = <ls_order_active>-purchaseOrderId
+                                      is_draft                 = if_abap_behv=>mk-on
+                                      deleted                  = abap_false ] TO FIELD-SYMBOL(<ls_buffer_order_draft>).
+      IF sy-subrc = 0.
+        <ls_buffer_order_draft>-instance = CORRESPONDING #( <ls_order_active> ).
+      ENDIF.
+
+      DELETE lcl_buffer=>root_buffer WHERE instance-purchaseOrderId = <ls_order_active>-purchaseOrderId AND
+                                           is_draft                 = if_abap_behv=>mk-off AND
+                                           deleted                  = abap_false.
+
+      LOOP AT lt_items_active ASSIGNING FIELD-SYMBOL(<ls_item_active>)
+           WHERE purchaseOrderId = <ls_order_active>-purchaseOrderId.
+
+        ASSIGN lcl_buffer=>child_buffer[ instance-purchaseOrderId = <ls_item_active>-purchaseOrderId
+                                         instance-itemId          = <ls_item_active>-itemId
+                                         is_draft                 = if_abap_behv=>mk-on
+                                         deleted                  = abap_false ] TO FIELD-SYMBOL(<ls_buffer_item_draft>).
+        IF sy-subrc = 0.
+          <ls_buffer_item_draft>-instance = CORRESPONDING #( <ls_item_active> ).
+        ENDIF.
+
+        delete lcl_buffer=>child_buffer where instance-purchaseOrderId = <ls_item_active>-purchaseOrderId and
+                                              instance-itemId          = <ls_item_active>-itemId and
+                                              is_draft                 = if_abap_behv=>mk-off and
+                                              deleted                  = abap_false.
+      ENDLOOP.
+    ENDLOOP.
+
   ENDMETHOD.
 
   METHOD Resume.
+    lcl_buffer=>prep_root_buffer( VALUE #( FOR <ls_k1>
+                                           IN keys
+                                           ( purchaseOrderId = <ls_k1>-purchaseOrderId
+                                             is_draft        = if_abap_behv=>mk-on ) ) ).
+
+    lcl_buffer=>prep_child_buffer( VALUE #( FOR <ls_k1>
+                                            IN keys
+                                            ( purchaseOrderId = <ls_k1>-purchaseOrderId
+                                              is_draft        = if_abap_behv=>mk-on ) ) ).
   ENDMETHOD.
 
   METHOD revalidatePricingRules.
@@ -855,6 +1073,10 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD checkDates.
+
+    DATA(lt_root) = lcl_buffer=>root_buffer.
+
+
   ENDMETHOD.
 
   METHOD checkHeaderCurrency.
@@ -917,122 +1139,136 @@ CLASS lhc_ItemTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD update.
-*    " Preparing the transactional buffer based on the input BDEF derived type.
-*    lcl_buffer=>prep_child_buffer( VALUE #( FOR <ls_k>
-*                                            IN entities
-*                                            ( purchaseOrderId = <ls_k>-purchaseOrderId
-*                                              itemId          = <ls_k>-itemId
-*                                              full_key        = abap_true  ) ) ).
-*
-*    " Processing requested entities sequentially
-*    LOOP AT entities ASSIGNING FIELD-SYMBOL(<ls_update>).
-*
-*      " Logic:
-*      "- Line with the specific key exists in the buffer for the root entity
-*      "- Line with the specific key must not be marked as deleted
-*      "- If it is true: Updating the buffer based on the input BDEF derived type and considering %control values
-*      READ TABLE lcl_buffer=>root_buffer
-*           WITH KEY instance-purchaseOrderId = <ls_update>-purchaseOrderId
-*                    deleted                  = abap_false
-*           ASSIGNING FIELD-SYMBOL(<ls_up>).
-*
-*      IF sy-subrc = 0.
-*        <ls_up>-instance-orderDate        = COND #( WHEN <ls_update>-%control-orderDate <> if_abap_behv=>mk-off
-*                                                    THEN <ls_update>-orderDate
-*                                                    ELSE <ls_up>-instance-orderDate ).
-*        <ls_up>-instance-supplierId       = COND #( WHEN <ls_update>-%control-supplierId <> if_abap_behv=>mk-off
-*                                                    THEN <ls_update>-supplierId
-*                                                    ELSE <ls_up>-instance-supplierId ).
-*        <ls_up>-instance-supplierName     = COND #( WHEN <ls_update>-%control-supplierName <> if_abap_behv=>mk-off
-*                                                    THEN <ls_update>-supplierName
-*                                                    ELSE <ls_up>-instance-supplierName ).
-*        <ls_up>-instance-buyerId          = COND #( WHEN <ls_update>-%control-buyerId <> if_abap_behv=>mk-off
-*                                                    THEN <ls_update>-buyerId
-*                                                    ELSE <ls_up>-instance-buyerId ).
-*        <ls_up>-instance-buyerName        = COND #( WHEN <ls_update>-%control-buyerName <> if_abap_behv=>mk-off
-*                                                    THEN <ls_update>-buyerName
-*                                                    ELSE <ls_up>-instance-buyerName ).
-*        <ls_up>-instance-totalAmount      = COND #( WHEN <ls_update>-%control-totalAmount <> if_abap_behv=>mk-off
-*                                                    THEN <ls_update>-totalAmount
-*                                                    ELSE <ls_up>-instance-totalAmount ).
-*        <ls_up>-instance-headerCurrency   = COND #( WHEN <ls_update>-%control-headerCurrency <> if_abap_behv=>mk-off
-*                                                    THEN <ls_update>-headerCurrency
-*                                                    ELSE <ls_up>-instance-headerCurrency ).
-*        <ls_up>-instance-deliveryDate     = COND #( WHEN <ls_update>-%control-deliveryDate <> if_abap_behv=>mk-off
-*                                                    THEN <ls_update>-deliveryDate
-*                                                    ELSE <ls_up>-instance-deliveryDate ).
-*        <ls_up>-instance-status           = COND #( WHEN <ls_update>-%control-status <> if_abap_behv=>mk-off
-*                                                    THEN <ls_update>-status
-*                                                    ELSE <ls_up>-instance-status ).
-*        <ls_up>-instance-paymentTerms     = COND #( WHEN <ls_update>-%control-paymentTerms <> if_abap_behv=>mk-off
-*                                                    THEN <ls_update>-paymentTerms
-*                                                    ELSE <ls_up>-instance-paymentTerms ).
-*        <ls_up>-instance-shippingMethod   = COND #( WHEN <ls_update>-%control-shippingMethod <> if_abap_behv=>mk-off
-*                                                    THEN <ls_update>-shippingMethod
-*                                                    ELSE <ls_up>-instance-shippingMethod ).
-*        <ls_up>-instance-controlTimestamp = COND #( WHEN <ls_update>-%control-controlTimestamp <> if_abap_behv=>mk-off
-*                                                    THEN <ls_update>-controlTimestamp
-*                                                    ELSE <ls_up>-instance-controlTimestamp ).
-*        <ls_up>-instance-createdBy        = COND #( WHEN <ls_update>-%control-createdBy <> if_abap_behv=>mk-off
-*                                                    THEN <ls_update>-createdBy
-*                                                    ELSE <ls_up>-instance-createdBy ).
-*        <ls_up>-instance-createOn         = COND #( WHEN <ls_update>-%control-createOn <> if_abap_behv=>mk-off
-*                                                    THEN <ls_update>-createOn
-*                                                    ELSE <ls_up>-instance-createOn ).
-*        <ls_up>-instance-changedBy        = COND #( WHEN <ls_update>-%control-changedBy <> if_abap_behv=>mk-off
-*                                                    THEN <ls_update>-changedBy
-*                                                    ELSE <ls_up>-instance-changedBy ).
-*        <ls_up>-instance-changedOn        = COND #( WHEN <ls_update>-%control-changedOn <> if_abap_behv=>mk-off
-*                                                    THEN <ls_update>-changedOn
-*                                                    ELSE <ls_up>-instance-changedOn ).
-*        <ls_up>-instance-lastChanged      = COND #( WHEN <ls_update>-%control-lastChanged <> if_abap_behv=>mk-off
-*                                                    THEN <ls_update>-lastChanged
-*                                                    ELSE <ls_up>-instance-lastChanged ).
-*        <ls_up>-changed = abap_true.
-*        <ls_up>-deleted = abap_false.
-*      ELSE.
-*
-*        " Filling FAILED and REPORTED response parameters
-*        APPEND VALUE #( %tky        = <ls_update>-%tky
-*                        %cid        = <ls_update>-%cid_ref
-*                        %fail-cause = if_abap_behv=>cause-not_found
-*                        %update     = if_abap_behv=>mk-on )
-*               TO failed-ordertp.
-*
-*        APPEND VALUE #( %tky = <ls_update>-%tky
-*                        %cid = <ls_update>-%cid_ref
-*                        %msg = new_message_with_text( severity = if_abap_behv_message=>severity-error
-*                                                      text     = 'Update operation failed.' ) )
-*               TO reported-ordertp.
-*
-*      ENDIF.
-*    ENDLOOP.
+    lcl_buffer=>prep_child_buffer( VALUE #( FOR <ls_k>
+                                            IN entities
+                                            ( purchaseOrderId = <ls_k>-purchaseOrderId
+                                              itemId          = <ls_k>-itemId
+                                              is_draft        = <ls_k>-%is_draft
+                                              full_key        = abap_true  ) ) ).
+
+    LOOP AT entities ASSIGNING FIELD-SYMBOL(<ls_update>).
+
+      READ TABLE lcl_buffer=>child_buffer
+           WITH KEY instance-purchaseOrderId = <ls_update>-purchaseOrderId
+                    instance-itemId          = <ls_update>-itemId
+                    is_draft                 = <ls_update>-%is_draft
+                    deleted                  = abap_false
+           ASSIGNING FIELD-SYMBOL(<ls_up>).
+
+      IF sy-subrc = 0.
+        <ls_up>-instance-itemnumber        = COND #( WHEN <ls_update>-%control-itemnumber <> if_abap_behv=>mk-off
+                                                     THEN <ls_update>-itemnumber
+                                                     ELSE <ls_up>-instance-itemnumber ).
+        <ls_up>-instance-productId         = COND #( WHEN <ls_update>-%control-productId <> if_abap_behv=>mk-off
+                                                     THEN <ls_update>-productId
+                                                     ELSE <ls_up>-instance-productId ).
+        <ls_up>-instance-productName       = COND #( WHEN <ls_update>-%control-productName <> if_abap_behv=>mk-off
+                                                     THEN <ls_update>-productName
+                                                     ELSE <ls_up>-instance-productName ).
+        <ls_up>-instance-quantity          = COND #( WHEN <ls_update>-%control-quantity <> if_abap_behv=>mk-off
+                                                     THEN <ls_update>-quantity
+                                                     ELSE <ls_up>-instance-quantity ).
+        <ls_up>-instance-unitPrice         = COND #( WHEN <ls_update>-%control-unitPrice <> if_abap_behv=>mk-off
+                                                     THEN <ls_update>-unitPrice
+                                                     ELSE <ls_up>-instance-unitPrice ).
+        <ls_up>-instance-totalPrice        = COND #( WHEN <ls_update>-%control-totalPrice <> if_abap_behv=>mk-off
+                                                     THEN <ls_update>-totalPrice
+                                                     ELSE <ls_up>-instance-totalPrice ).
+        <ls_up>-instance-deliveryDate      = COND #( WHEN <ls_update>-%control-deliveryDate <> if_abap_behv=>mk-off
+                                                     THEN <ls_update>-deliveryDate
+                                                     ELSE <ls_up>-instance-deliveryDate ).
+        <ls_up>-instance-warehouseLocation = COND #( WHEN <ls_update>-%control-warehouseLocation <> if_abap_behv=>mk-off
+                                                     THEN <ls_update>-warehouseLocation
+                                                     ELSE <ls_up>-instance-warehouseLocation ).
+        <ls_up>-instance-itemCurrency      = COND #( WHEN <ls_update>-%control-itemCurrency <> if_abap_behv=>mk-off
+                                                     THEN <ls_update>-itemCurrency
+                                                     ELSE <ls_up>-instance-itemCurrency ).
+        <ls_up>-instance-isUrgent          = COND #( WHEN <ls_update>-%control-isUrgent <> if_abap_behv=>mk-off
+                                                     THEN <ls_update>-isUrgent
+                                                     ELSE <ls_up>-instance-isUrgent ).
+        <ls_up>-instance-createdBy         = COND #( WHEN <ls_update>-%control-createdBy <> if_abap_behv=>mk-off
+                                                     THEN <ls_update>-createdBy
+                                                     ELSE <ls_up>-instance-createdBy ).
+        <ls_up>-instance-createOn          = COND #( WHEN <ls_update>-%control-createOn <> if_abap_behv=>mk-off
+                                                     THEN <ls_update>-createOn
+                                                     ELSE <ls_up>-instance-createOn ).
+        <ls_up>-instance-changedBy         = COND #( WHEN <ls_update>-%control-changedBy <> if_abap_behv=>mk-off
+                                                     THEN <ls_update>-changedBy
+                                                     ELSE <ls_up>-instance-changedBy ).
+        <ls_up>-instance-changedOn         = COND #( WHEN <ls_update>-%control-changedOn <> if_abap_behv=>mk-off
+                                                     THEN <ls_update>-changedOn
+                                                     ELSE <ls_up>-instance-changedOn ).
+
+        <ls_up>-changed = abap_true.
+        <ls_up>-deleted = abap_false.
+      ELSE.
+
+        APPEND VALUE #( %tky        = <ls_update>-%tky
+                        %cid        = <ls_update>-%cid_ref
+                        %fail-cause = if_abap_behv=>cause-not_found
+                        %update     = if_abap_behv=>mk-on )
+               TO failed-itemtp.
+
+        APPEND VALUE #( %tky = <ls_update>-%tky
+                        %cid = <ls_update>-%cid_ref
+                        %msg = new_message_with_text( severity = if_abap_behv_message=>severity-error
+                                                      text     = 'Update operation failed.' ) )
+               TO reported-itemtp.
+
+      ENDIF.
+    ENDLOOP.
   ENDMETHOD.
 
   METHOD delete.
-  ENDMETHOD.
 
-  METHOD read.
-    " Preparing the transactional buffer for child entity based on the input BDEF derived type.
-    " Here, the full_key flag is set to consider all key values.
-    " Purpose: The preparation method is set up to also consider the entries in the root buffer
-    " when dealing with by-association operations which is not relevant in this case.
     lcl_buffer=>prep_child_buffer( VALUE #( FOR <ls_k>
                                             IN keys
                                             ( purchaseOrderId = <ls_k>-purchaseOrderId
                                               itemId          = <ls_k>-itemId
+                                              is_draft        = <ls_k>-%is_draft
                                               full_key        = abap_true  ) ) ).
 
-    " Processing the requested keys sequentially
+    LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_delete>).
+      READ TABLE lcl_buffer=>child_buffer
+           WITH KEY instance-purchaseOrderId = <ls_delete>-purchaseOrderId
+                    instance-itemId          = <ls_delete>-itemId
+                    is_draft                 = <ls_delete>-%is_draft
+                    deleted                  = abap_false ASSIGNING FIELD-SYMBOL(<ls_del>).
+
+      IF sy-subrc = 0.
+        <ls_del>-changed = abap_false.
+        <ls_del>-deleted = abap_true.
+      ELSE.
+        APPEND VALUE #( %tky        = <ls_delete>-%tky
+                        %cid        = <ls_delete>-%cid_ref
+                        %fail-cause = if_abap_behv=>cause-not_found
+                        %delete     = if_abap_behv=>mk-on ) TO failed-itemtp.
+
+        APPEND VALUE #( %tky = <ls_delete>-%tky
+                        %cid = <ls_delete>-%cid_ref
+                        %msg = new_message_with_text( severity = if_abap_behv_message=>severity-error
+                                                      text     = 'Delete operation failed.' ) ) TO reported-itemtp.
+      ENDIF.
+    ENDLOOP.
+
+  ENDMETHOD.
+
+  METHOD read.
+    lcl_buffer=>prep_child_buffer( VALUE #( FOR <ls_k>
+                                            IN keys
+                                            ( purchaseOrderId = <ls_k>-purchaseOrderId
+                                              itemId          = <ls_k>-itemId
+                                              is_draft        = <ls_k>-%is_draft
+                                              full_key        = abap_true  ) ) ).
+
     LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_read>) GROUP BY <ls_read>-%tky.
 
-      " Logic:
-      "- Line with the requested key values exists in the child buffer
-      "- If it is true: Adding the line to the RESULT parameter considering %control values.
       READ TABLE lcl_buffer=>child_buffer
            WITH KEY instance-purchaseOrderId = <ls_read>-purchaseOrderId
                     instance-itemId          = <ls_read>-itemId
-           ASSIGNING FIELD-SYMBOL(<ls_rc>).
+                    is_draft                 = <ls_read>-%is_draft
+                    deleted                  = abap_false ASSIGNING FIELD-SYMBOL(<ls_rc>).
+
       IF sy-subrc = 0.
         APPEND VALUE #( %tky              = <ls_read>-%tky
                         itemNumber        = COND #( WHEN <ls_read>-%control-itemNumber <> if_abap_behv=>mk-off
@@ -1066,7 +1302,6 @@ CLASS lhc_ItemTP IMPLEMENTATION.
 
       ELSE.
 
-        " Filling FAILED and REPORTED response parameters
         APPEND VALUE #( %tky        = <ls_read>-%tky
                         %fail-cause = if_abap_behv=>cause-not_found )
                TO failed-itemtp.
@@ -1081,32 +1316,30 @@ CLASS lhc_ItemTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD rba_Header_tp.
-    " Preparing the transactional buffers for both the root and child entity based on the input BDEF derived type.
-    lcl_buffer=>prep_root_buffer( CORRESPONDING #( keys_rba ) ).
-    lcl_buffer=>prep_child_buffer( CORRESPONDING #( keys_rba ) ).
+    lcl_buffer=>prep_root_buffer( CORRESPONDING #( keys_rba MAPPING purchaseorderid = purchaseOrderId
+                                                                    is_draft        = %is_draft ) ).
+    lcl_buffer=>prep_child_buffer( CORRESPONDING #( keys_rba MAPPING purchaseorderid = purchaseOrderId
+                                                                     is_draft        = %is_draft ) ).
 
     LOOP AT keys_rba ASSIGNING FIELD-SYMBOL(<ls_rba>) GROUP BY <ls_rba>-%tky.
-      " Logic:
-      "- Line with the shared key value exists in buffer for the root entity and is not marked as deleted
-      "- Line with the full key exists in the child buffer
-      "- If it is true: Adding the instance to the RESULT parameter considering %control values
       IF     line_exists( lcl_buffer=>root_buffer[ instance-purchaseOrderId = <ls_rba>-purchaseOrderId
+                                                   is_draft                 = <ls_rba>-%is_draft
                                                    deleted                  = abap_false ] )
          AND line_exists( lcl_buffer=>child_buffer[ instance-purchaseOrderId = <ls_rba>-purchaseOrderId
-                                                    instance-itemId          = <ls_rba>-itemId ] ).
+                                                    is_draft                 = <ls_rba>-%is_draft
+                                                    instance-itemId          = <ls_rba>-itemId
+                                                    deleted                  = abap_false ] ).
 
-        " Filling the LINK parameter
         INSERT VALUE #( target-%tky = CORRESPONDING #( <ls_rba>-%tky )
                         source-%tky = VALUE #( purchaseOrderId = <ls_rba>-purchaseOrderId
-                                               itemId          = <ls_rba>-itemId ) ) INTO TABLE association_links.
+                                               itemId          = <ls_rba>-itemId
+                                               %is_draft       = <ls_rba>-%is_draft ) ) INTO TABLE association_links.
 
         IF result_requested = abap_true.
           READ TABLE lcl_buffer=>root_buffer
                WITH KEY instance-purchaseOrderId = <ls_rba>-purchaseOrderId
-               ASSIGNING FIELD-SYMBOL(<ls_rp>).
-
+                        is_draft                 = <ls_rba>-%is_draft ASSIGNING FIELD-SYMBOL(<ls_rp>).
           IF sy-subrc = 0.
-
             APPEND VALUE #( %tky             = CORRESPONDING #( <ls_rba>-%tky )
                             orderDate        = COND #( WHEN <ls_rba>-%control-orderDate <> if_abap_behv=>mk-off
                                                        THEN <ls_rp>-instance-orderDate )
@@ -1147,7 +1380,6 @@ CLASS lhc_ItemTP IMPLEMENTATION.
 
       ELSE.
 
-        " Filling FAILED and REPORTED response parameters
         APPEND VALUE #( %tky              = <ls_rba>-%tky
                         %assoc-_header_tp = if_abap_behv=>mk-on
                         %fail-cause       = if_abap_behv=>cause-not_found )
@@ -1212,14 +1444,64 @@ CLASS lsc_ZPRU_U_PURCORDERHDR_TP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD check_before_save.
+
+    DATA(lt_root) = lcl_buffer=>root_buffer.
+
+
+
+
   ENDMETHOD.
 
   METHOD save.
+
+    DATA lt_mod_tab TYPE TABLE OF zpru_purc_order WITH EMPTY KEY.
+    DATA lt_del_tab TYPE lcl_buffer=>tt_root_keys.
+    DATA lt_mod_child_tab TYPE TABLE OF zpru_po_item WITH EMPTY KEY.
+    DATA lt_del_child_tab TYPE TABLE OF zpru_po_item WITH EMPTY KEY.
+
+    IF line_exists( lcl_buffer=>root_buffer[ changed = abap_true ] ).
+      LOOP AT lcl_buffer=>root_buffer ASSIGNING FIELD-SYMBOL(<ls_cr>) WHERE changed = abap_true AND
+                                                                            deleted = abap_false AND
+                                                                            is_draft = if_abap_behv=>mk-off.
+        APPEND CORRESPONDING #( <ls_cr>-instance MAPPING FROM ENTITY ) TO lt_mod_tab.
+      ENDLOOP.
+      MODIFY zpru_purc_order FROM TABLE @( CORRESPONDING #( lt_mod_tab ) ).
+    ENDIF.
+
+    IF line_exists( lcl_buffer=>root_buffer[ deleted = abap_true ] ).
+      LOOP AT lcl_buffer=>root_buffer ASSIGNING FIELD-SYMBOL(<ls_del>) WHERE deleted = abap_true AND
+                                                                             is_draft = if_abap_behv=>mk-off.
+        APPEND CORRESPONDING #( <ls_del>-instance ) TO lt_del_tab.
+      ENDLOOP.
+      DELETE zpru_purc_order FROM TABLE @( CORRESPONDING #( lt_del_tab ) ).
+    ENDIF.
+
+    IF line_exists( lcl_buffer=>child_buffer[ changed = abap_true ] ).
+      LOOP AT lcl_buffer=>child_buffer ASSIGNING FIELD-SYMBOL(<ls_mod_child>) WHERE changed = abap_true AND
+                                                                              is_draft = if_abap_behv=>mk-off.
+        APPEND CORRESPONDING #( <ls_mod_child>-instance MAPPING FROM ENTITY ) TO lt_mod_child_tab.
+      ENDLOOP.
+
+      MODIFY zpru_po_item FROM TABLE @( CORRESPONDING #( lt_mod_child_tab ) ).
+    ENDIF.
+
+    IF line_exists( lcl_buffer=>child_buffer[ deleted = abap_true ] ).
+      LOOP AT lcl_buffer=>child_buffer ASSIGNING FIELD-SYMBOL(<ls_del_child>) WHERE deleted = abap_true AND
+                                                                                    is_draft = if_abap_behv=>mk-off.
+        APPEND CORRESPONDING #( <ls_del_child>-instance ) TO lt_del_child_tab.
+      ENDLOOP.
+      DELETE zpru_purc_order FROM TABLE @( CORRESPONDING #( lt_del_child_tab ) ).
+    ENDIF.
+
   ENDMETHOD.
 
   METHOD cleanup.
+    CLEAR lcl_buffer=>root_buffer.
+    CLEAR lcl_buffer=>child_buffer.
   ENDMETHOD.
 
   METHOD cleanup_finalize.
+    CLEAR lcl_buffer=>root_buffer.
+    CLEAR lcl_buffer=>child_buffer.
   ENDMETHOD.
 ENDCLASS.
