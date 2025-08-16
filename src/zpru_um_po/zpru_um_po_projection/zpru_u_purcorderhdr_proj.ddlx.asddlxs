@@ -55,8 +55,8 @@ annotate entity ZPRU_U_PURCORDERHDR_PROJ
   // Facets end
 
   @UI.selectionField: [ { position: 10 } ]
-  @UI: { lineItem:       [ { position: 10 }
-//                           { type: #FOR_ACTION, dataAction: 'ChangeStatus', label: 'Change Status' },
+  @UI: { lineItem:       [ { position: 10 },
+                           { type: #FOR_ACTION, dataAction: 'ChangeStatus', label: 'Change Status' }
 //                           { type: #FOR_ACTION, dataAction: 'checkOrder', label: 'Check Order' },
 //                           { type: #FOR_ACTION, dataAction: 'sendOrderStatisticToAzure', label: 'Send To Azure' },
 //                           { type: #FOR_ACTION, dataAction: 'createFromTemplate', label: 'Create From Template' }

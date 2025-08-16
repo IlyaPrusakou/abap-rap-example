@@ -43,12 +43,12 @@ CLASS lcl_buffer DEFINITION.
     CLASS-DATA child_buffer TYPE STANDARD TABLE OF gty_buffer_child WITH EMPTY KEY.
 
     TYPES: BEGIN OF root_db_keys,
-             purchase_order_id TYPE zpru_de_po_id,
+             purchase_order_id TYPE zpru_de_po_id, " qqq use your data element
            END OF root_db_keys.
 
     TYPES: BEGIN OF child_db_keys,
              purchase_order_id TYPE zpru_de_po_id,
-             item_Id           TYPE zpru_de_po_itm_id,
+             item_Id           TYPE zpru_de_po_itm_id, " qqq use your data element
            END OF child_db_keys.
 
     TYPES: BEGIN OF root_keys,
@@ -339,15 +339,132 @@ CLASS lhc_OrderTP DEFINITION INHERITING FROM cl_abap_behavior_handler.
 
     METHODS checkSupplier FOR VALIDATE ON SAVE
       IMPORTING keys FOR OrderTP~checkSupplier.
+    METHODS precheck_cba_Items_tp FOR PRECHECK
+      IMPORTING entities FOR CREATE OrderTP\_Items_tp.
 
 ENDCLASS.
 
 
 CLASS lhc_OrderTP IMPLEMENTATION.
   METHOD get_instance_features.
+
+    IF keys IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '001'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF zpru_u_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP
+         FIELDS ( status )
+         WITH CORRESPONDING #( keys )
+         RESULT DATA(lt_roots).
+
+    IF lt_roots IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING <lo_reported>.
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '002'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_key>).
+
+      ASSIGN lt_roots[ KEY id COMPONENTS %tky = <ls_key>-%tky ] TO FIELD-SYMBOL(<ls_instance>).
+      IF sy-subrc <> 0.
+        APPEND INITIAL LINE TO failed-ordertp ASSIGNING FIELD-SYMBOL(<ls_failed>).
+        <ls_failed>-%tky = <ls_instance>-%tky.
+        <ls_failed>-%fail-cause = if_abap_behv=>cause-not_found.
+        CONTINUE.
+      ENDIF.
+
+      IF <ls_instance>-status = zpru_if_m_po=>cs_status-completed.
+        APPEND INITIAL LINE TO result ASSIGNING FIELD-SYMBOL(<ls_result>).
+        <ls_result>-%is_draft       = <ls_key>-%is_draft.
+        <ls_result>-purchaseorderid = <ls_key>-purchaseOrderId.
+        <ls_result>-%features-%field-PaymentTerms = if_abap_behv=>fc-f-read_only.
+        <ls_result>-%features-%delete             = if_abap_behv=>fc-o-disabled.
+      ENDIF.
+    ENDLOOP.
+
   ENDMETHOD.
 
   METHOD get_instance_authorizations.
+    DATA lt_order_read_in TYPE TABLE FOR READ IMPORT zpru_u_purcorderhdr_tp\\OrderTP. " qqq change to your type
+
+    IF keys IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '001'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    lt_order_read_in = CORRESPONDING #( keys ).
+
+    READ ENTITIES OF zpru_u_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP
+         FIELDS ( status )
+         WITH lt_order_read_in
+         RESULT DATA(lt_roots).
+
+    IF lt_roots IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING <lo_reported>.
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '002'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_key>).
+
+      ASSIGN lt_roots[ KEY id COMPONENTS %tky = <ls_key>-%tky ] TO FIELD-SYMBOL(<ls_instance>).
+      IF sy-subrc <> 0.
+        APPEND INITIAL LINE TO failed-ordertp ASSIGNING FIELD-SYMBOL(<ls_failed>).
+        <ls_failed>-%tky = <ls_instance>-%tky.
+        <ls_failed>-%fail-cause = if_abap_behv=>cause-not_found.
+        CONTINUE.
+      ENDIF.
+
+      IF <ls_instance>-status = zpru_if_m_po=>cs_status-archived.
+        APPEND INITIAL LINE TO result ASSIGNING FIELD-SYMBOL(<ls_result>).
+        <ls_result>-%is_draft       = <ls_key>-%is_draft.
+        <ls_result>-purchaseorderid = <ls_key>-purchaseOrderId.
+        <ls_result>-%update         = if_abap_behv=>auth-unauthorized.
+        <ls_result>-%delete         = if_abap_behv=>auth-unauthorized.
+        <ls_result>-%action-edit               = if_abap_behv=>auth-unauthorized.
+        <ls_result>-%action-createfromtemplate = if_abap_behv=>auth-unauthorized.
+
+        IF requested_authorizations-%action-Edit = if_abap_behv=>mk-on OR
+           requested_authorizations-%delete = if_abap_behv=>mk-on.
+          APPEND INITIAL LINE TO failed-ordertp ASSIGNING <ls_failed>.
+          <ls_failed>-%tky = <ls_instance>-%tky.
+          <ls_failed>-%fail-cause = if_abap_behv=>cause-unauthorized.
+
+          APPEND INITIAL LINE TO reported-ordertp ASSIGNING FIELD-SYMBOL(<lo_order>).
+          <lo_order>-%tky = <ls_instance>-%tky.
+          <lo_order>-%msg = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                         number   = '004'
+                                         severity = if_abap_behv_message=>severity-error ).
+        ENDIF.
+
+      ELSE.
+        APPEND INITIAL LINE TO result ASSIGNING <ls_result>.
+        <ls_result>-%is_draft       = <ls_key>-%is_draft.
+        <ls_result>-purchaseorderid = <ls_key>-purchaseOrderId.
+        <ls_result>-%update         = if_abap_behv=>auth-allowed.
+        <ls_result>-%delete         = if_abap_behv=>auth-allowed.
+        <ls_result>-%action-edit               = if_abap_behv=>auth-allowed.
+        <ls_result>-%action-changestatus       = if_abap_behv=>auth-allowed.
+        <ls_result>-%action-createfromtemplate = if_abap_behv=>auth-allowed.
+      ENDIF.
+    ENDLOOP.
+
+
   ENDMETHOD.
 
   METHOD get_global_authorizations.
@@ -446,6 +563,31 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD precheck_create.
+
+    SELECT purchaseOrderId
+    FROM zpru_u_purcorderhdr_tp " qqq use your transactional CDS
+    FOR ALL ENTRIES IN @entities
+    WHERE purchaseOrderId = @entities-purchaseOrderId
+    INTO TABLE @DATA(lt_existing_po).
+
+    LOOP AT entities ASSIGNING FIELD-SYMBOL(<ls_entity>).
+      IF line_exists( lt_existing_po[ table_line = <ls_entity>-purchaseOrderId ] ).
+        APPEND INITIAL LINE TO failed-ordertp ASSIGNING FIELD-SYMBOL(<ls_order_failed>).
+        <ls_order_failed>-%cid      = <ls_entity>-%cid.
+        <ls_order_failed>-%key      = <ls_entity>-%key.
+        <ls_order_failed>-%is_draft = <ls_entity>-%is_draft.
+        <ls_order_failed>-%create   = if_abap_behv=>mk-on.
+
+        APPEND VALUE #( %cid      = <ls_entity>-%cid
+                        %key      = <ls_entity>-%key
+                        %is_draft = <ls_entity>-%is_draft
+                        %create   = if_abap_behv=>mk-on
+                        %msg      = new_message_with_text( severity = if_abap_behv_message=>severity-error
+                                                           text     = 'Duplicate in DB' ) )
+               TO reported-ordertp.
+      ENDIF.
+    ENDLOOP.
+
   ENDMETHOD.
 
   METHOD update.
@@ -938,6 +1080,57 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD ChangeStatus.
+    DATA lt_po_update   TYPE TABLE FOR UPDATE zpru_u_purcorderhdr_tp\\OrderTP. " qqq change on your type
+
+    IF keys IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '001'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF zpru_u_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP
+         ALL FIELDS
+         WITH CORRESPONDING #( keys )
+         RESULT DATA(lt_roots).
+
+    IF lt_roots IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING <lo_reported>.
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '002'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_key>).
+
+      ASSIGN lt_roots[ KEY id COMPONENTS %tky = <ls_key>-%tky ] TO FIELD-SYMBOL(<ls_instance>).
+      IF sy-subrc <> 0.
+        APPEND INITIAL LINE TO failed-ordertp ASSIGNING FIELD-SYMBOL(<ls_failed>).
+        <ls_failed>-%tky = <ls_instance>-%tky.
+        <ls_failed>-%fail-cause = if_abap_behv=>cause-not_found.
+        <ls_failed>-%action-ChangeStatus = if_abap_behv=>mk-on.
+        CONTINUE.
+      ENDIF.
+
+      APPEND INITIAL LINE TO lt_po_update ASSIGNING FIELD-SYMBOL(<ls_order_update>).
+      <ls_order_update>-%tky = <ls_instance>-%tky.
+      <ls_order_update>-%data-Status = <ls_key>-%param-newstatus.
+      <ls_order_update>-%control-Status = if_abap_behv=>mk-on.
+
+    ENDLOOP.
+
+    " update status
+    IF lt_po_update IS NOT INITIAL.
+      MODIFY ENTITIES OF zpru_u_purcorderhdr_tp
+             IN LOCAL MODE
+             ENTITY OrderTP
+             UPDATE FROM lt_po_update.
+    ENDIF.
+
   ENDMETHOD.
 
   METHOD precheck_ChangeStatus.
@@ -1050,6 +1243,46 @@ CLASS lhc_OrderTP IMPLEMENTATION.
 
   METHOD checkSupplier.
   ENDMETHOD.
+  METHOD precheck_cba_Items_tp.
+
+    SELECT purchaseOrderId, itemId
+        FROM zpru_u_purcorderitem_tp " qqq use your transactional CDS
+        FOR ALL ENTRIES IN @entities
+        WHERE purchaseOrderId = @entities-purchaseOrderId
+        INTO TABLE @DATA(lt_existing_items).
+
+    LOOP AT entities ASSIGNING FIELD-SYMBOL(<ls_entity>).
+      LOOP AT <ls_entity>-%target ASSIGNING FIELD-SYMBOL(<ls_item>).
+        IF line_exists( lt_existing_items[ purchaseOrderId = <ls_entity>-purchaseOrderId
+                                           itemId          = <ls_item>-itemId ] ).
+          APPEND VALUE #( %cid             = <ls_entity>-%cid_ref
+                          %tky             = <ls_entity>-%tky
+                          %assoc-_items_tp = if_abap_behv=>mk-on
+                          %fail-cause      = if_abap_behv=>cause-unspecific ) TO failed-ordertp.
+
+          APPEND VALUE #( %cid = <ls_entity>-%cid_ref
+                          %tky = <ls_entity>-%tky
+                          %msg = new_message_with_text( severity = if_abap_behv_message=>severity-error
+                                                        text     = 'root to child failed - already exists.' ) )
+                 TO reported-ordertp.
+
+          APPEND VALUE #( %cid        = <ls_item>-%cid
+                          %key        = VALUE #( purchaseOrderId = <ls_entity>-purchaseOrderId
+                                                 itemId          = <ls_item>-itemId )
+                          %fail-cause = if_abap_behv=>cause-dependency ) TO failed-itemtp.
+
+          APPEND VALUE #( %cid = <ls_item>-%cid
+                          %key = VALUE #( purchaseOrderId = <ls_entity>-purchaseOrderId
+                                          itemId          = <ls_item>-itemId )
+                          %msg = new_message_with_text( severity = if_abap_behv_message=>severity-error
+                                                        text     = 'root to child failed - already exists2.' ) )
+                 TO reported-itemtp.
+        ENDIF.
+      ENDLOOP.
+    ENDLOOP.
+
+  ENDMETHOD.
+
 ENDCLASS.
 
 
@@ -1211,7 +1444,7 @@ CLASS lhc_ItemTP IMPLEMENTATION.
 
   METHOD delete.
 
-    DATA lt_root_upd TYPE TABLE FOR UPDATE zpru_u_purcorderhdr_tp.
+    DATA lt_root_upd TYPE TABLE FOR UPDATE zpru_u_purcorderhdr_tp. " qqq use your BDEF
 
     lcl_buffer=>prep_child_buffer( VALUE #( FOR <ls_k>
                                             IN keys

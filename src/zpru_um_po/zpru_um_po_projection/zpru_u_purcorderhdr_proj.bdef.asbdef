@@ -9,7 +9,7 @@ define behavior for ZPRU_U_PURCORDERHDR_PROJ alias OrderProj
   use delete;
 
 //  use action sendOrderStatisticToAzure;
-//  use action ChangeStatus;
+  use action ChangeStatus;
 //  use action createFromTemplate;
 //  use function getMajorSupplier;
 //  use function getStatusHistory;
@@ -29,7 +29,7 @@ define behavior for ZPRU_U_PURCORDERITEM_PROJ alias ItemProj
   use update;
   use delete;
 
-//  use action markAsUrgent;
+  use action markAsUrgent;
 //  use function getInventoryStatus;
 
   use association _header_tp { with draft; }
