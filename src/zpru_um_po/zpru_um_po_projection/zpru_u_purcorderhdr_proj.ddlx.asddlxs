@@ -57,9 +57,6 @@ annotate entity ZPRU_U_PURCORDERHDR_PROJ
   @UI.selectionField: [ { position: 10 } ]
   @UI: { lineItem:       [ { position: 10 },
                            { type: #FOR_ACTION, dataAction: 'ChangeStatus', label: 'Change Status' }
-//                           { type: #FOR_ACTION, dataAction: 'checkOrder', label: 'Check Order' },
-//                           { type: #FOR_ACTION, dataAction: 'sendOrderStatisticToAzure', label: 'Send To Azure' },
-//                           { type: #FOR_ACTION, dataAction: 'createFromTemplate', label: 'Create From Template' }
                             ],
          identification: [ { position: 10 } ],
          fieldGroup:     [ { qualifier: 'Fieldgroup1',
@@ -163,13 +160,6 @@ annotate entity ZPRU_U_PURCORDERHDR_PROJ
                              position: 160 } ] }
   @EndUserText.label: 'Chaned On'
   changedOn;
-
-  @UI: { lineItem:       [ { position: 180 } ],
-         identification: [ { position: 180 } ],
-         fieldGroup:     [ { qualifier: 'Fieldgroup1',
-                             position: 180 } ] }
-  @EndUserText.label: 'Description'
-  orderdescription;
 
   @Consumption.hidden: true
   lastChanged;

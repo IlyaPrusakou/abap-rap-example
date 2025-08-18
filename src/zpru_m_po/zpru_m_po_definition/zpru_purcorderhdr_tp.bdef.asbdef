@@ -42,7 +42,7 @@ changedocuments master ( ZPRU_PURC_ORDER )
   {
     determination ( always ) calcTotalAmount;
     determination ( always ) setControlTimestamp;
-    determination ( always ) ItemTP~findWarehouseLocation;
+    determination ItemTP~findWarehouseLocation;
     validation ( always ) checkDates;
     validation ( always ) checkHeaderCurrency;
     validation ( always ) checkSupplier;
@@ -55,7 +55,7 @@ changedocuments master ( ZPRU_PURC_ORDER )
   {
     determination ( always ) calcTotalAmount;
     determination ( always ) setControlTimestamp;
-    determination ( always ) ItemTP~findWarehouseLocation;
+    determination ItemTP~findWarehouseLocation;
     validation ( always ) checkDates;
     validation ( always ) checkHeaderCurrency;
     validation ( always ) checkSupplier;

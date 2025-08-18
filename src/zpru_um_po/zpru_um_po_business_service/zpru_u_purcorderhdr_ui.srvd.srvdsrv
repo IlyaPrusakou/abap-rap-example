@@ -3,4 +3,8 @@ define service ZPRU_U_PURCORDERHDR_UI
   provider contracts odata_v4_ui, odata_v2_ui {
   expose ZPRU_U_PURCORDERHDR_PROJ  as purchaseOrder;
   expose ZPRU_U_PURCORDERITEM_PROJ as purchaseItem;
+  expose zpru_i_shipping_method    as shippingMethod;
+  expose zpru_i_shipping_method_t  as shippingMethodText;
+  expose ZPRU_I_BUYER              as buyer;
+  expose ZPRU_I_BUYER_T            as buyerText;
 }

@@ -1224,7 +1224,65 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   METHOD recalculateShippingMethod.
   ENDMETHOD.
 
-  METHOD calcTotalAmount.
+  METHOD calctotalamount.
+
+    DATA lt_order_update     TYPE TABLE FOR UPDATE zpru_u_purcorderhdr_tp\\ordertp.
+    DATA lv_new_total_amount TYPE zpru_u_purcorderhdr_tp-totalAmount.
+
+    IF keys IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '001'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF zpru_u_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP
+         ALL FIELDS WITH CORRESPONDING #( keys )
+         RESULT DATA(lt_roots).
+
+    IF lt_roots IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING <lo_reported>.
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '002'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF zpru_u_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP BY \_items_tp
+         ALL FIELDS WITH CORRESPONDING #( lt_roots )
+         RESULT DATA(lt_items).
+
+    LOOP AT lt_roots ASSIGNING FIELD-SYMBOL(<ls_instance>).
+
+      CLEAR lv_new_total_amount.
+      LOOP AT lt_items ASSIGNING FIELD-SYMBOL(<ls_item>)
+                       WHERE purchaseOrderId = <ls_instance>-purchaseOrderId.
+        lv_new_total_amount = lv_new_total_amount + <ls_item>-%data-totalPrice.
+      ENDLOOP.
+      " prevent auto triggering
+      IF <ls_instance>-totalAmount <> lv_new_total_amount.
+        APPEND INITIAL LINE TO lt_order_update ASSIGNING FIELD-SYMBOL(<ls_order_update>).
+        <ls_order_update>-%tky        = <ls_instance>-%tky.
+        <ls_order_update>-totalAmount = lv_new_total_amount.
+        <ls_order_update>-%control-totalAmount = if_abap_behv=>mk-on.
+      ENDIF.
+
+    ENDLOOP.
+
+    IF lt_order_update IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    MODIFY ENTITIES OF zpru_u_purcorderhdr_tp
+           IN LOCAL MODE
+           ENTITY OrderTP
+           UPDATE FROM lt_order_update.
+
   ENDMETHOD.
 
   METHOD setControlTimestamp.
@@ -1234,8 +1292,55 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD checkDates.
-    " TODO: variable is assigned but never used (ABAP cleaner)
-    DATA(lt_root) = lcl_buffer=>root_buffer.
+    IF keys IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '001'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF zpru_u_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP
+         FIELDS ( orderDate deliveryDate )
+         WITH CORRESPONDING #( keys )
+         RESULT DATA(lt_roots).
+
+    IF lt_roots IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING <lo_reported>.
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '002'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_key>).
+
+      ASSIGN lt_roots[ KEY id COMPONENTS %tky = <ls_key>-%tky ] TO FIELD-SYMBOL(<ls_instance>).
+      IF sy-subrc <> 0.
+        APPEND INITIAL LINE TO failed-ordertp ASSIGNING FIELD-SYMBOL(<ls_failed>).
+        <ls_failed>-%tky = <ls_instance>-%tky.
+        <ls_failed>-%fail-cause = if_abap_behv=>cause-not_found.
+        CONTINUE.
+      ENDIF.
+
+      APPEND INITIAL LINE TO reported-ordertp ASSIGNING FIELD-SYMBOL(<ls_order_reported>).
+      <ls_order_reported>-%tky        = <ls_instance>-%tky.
+      <ls_order_reported>-%state_area = lif_business_object=>cs_state_area-order-checkdates.
+
+      IF <ls_instance>-orderDate > <ls_instance>-DeliveryDate.
+        APPEND INITIAL LINE TO failed-ordertp ASSIGNING <ls_failed>.
+        <ls_failed>-%tky = <ls_instance>-%tky.
+
+        APPEND INITIAL LINE TO reported-ordertp ASSIGNING <ls_order_reported>.
+        <ls_order_reported>-%tky        = <ls_instance>-%tky.
+        <ls_order_reported>-%state_area = lif_business_object=>cs_state_area-order-checkdates.
+        <ls_order_reported>-%msg        = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                                       number   = '005'
+                                                       severity = if_abap_behv_message=>severity-error ).
+      ENDIF.
+    ENDLOOP.
   ENDMETHOD.
 
   METHOD checkHeaderCurrency.
@@ -1656,12 +1761,136 @@ CLASS lhc_ItemTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD calculateTotalPrice.
+    DATA lt_item_update TYPE TABLE FOR UPDATE zpru_u_purcorderhdr_tp\\itemtp.
+
+    IF keys IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '001'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF zpru_u_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY ItemTP
+         FIELDS ( quantity
+                  unitprice )
+         WITH CORRESPONDING #( keys )
+         RESULT DATA(lt_items).
+
+    IF lt_items IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING <lo_reported>.
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '002'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    LOOP AT lt_items ASSIGNING FIELD-SYMBOL(<ls_instance>).
+
+      APPEND INITIAL LINE TO lt_item_update ASSIGNING FIELD-SYMBOL(<ls_item_update>).
+      <ls_item_update>-%tky = <ls_instance>-%tky.
+      <ls_item_update>-%data-totalPrice = <ls_instance>-quantity * <ls_instance>-unitprice.
+      <ls_item_update>-%control-totalPrice = if_abap_behv=>mk-on.
+
+    ENDLOOP.
+
+    IF lt_item_update IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    MODIFY ENTITIES OF zpru_u_purcorderhdr_tp
+           IN LOCAL MODE
+           ENTITY ItemTP
+           UPDATE FROM lt_item_update.
+
   ENDMETHOD.
 
   METHOD findWarehouseLocation.
   ENDMETHOD.
 
   METHOD writeItemNumber.
+  DATA lt_item_update    type table for update ZPRU_U_PURCORDERHDR_TP\\itemtp.
+    DATA lt_EXISTING_items TYPE TABLE FOR READ RESULT ZPRU_U_PURCORDERHDR_TP\\itemtp.
+
+    IF keys IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '001'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF ZPRU_U_PURCORDERHDR_TP
+         IN LOCAL MODE
+         ENTITY ItemTP
+         ALL FIELDS
+         WITH CORRESPONDING #( keys )
+         RESULT DATA(lt_items).
+
+    IF lt_items IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING <lo_reported>.
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '002'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF ZPRU_U_PURCORDERHDR_TP
+         IN LOCAL MODE
+         ENTITY ItemTP BY \_header_tp
+         ALL FIELDS
+         WITH VALUE #( FOR <ls_i> IN keys
+                       ( %tky-%is_draft       = <ls_i>-%is_draft
+                         %tky-purchaseOrderId = <ls_i>-purchaseOrderId
+                         %tky-itemId          = <ls_i>-itemId  ) )
+         LINK DATA(lt_item_to_order).
+
+    READ ENTITIES OF ZPRU_U_PURCORDERHDR_TP
+         IN LOCAL MODE
+         ENTITY OrderTP BY \_items_tp
+         ALL FIELDS
+         WITH VALUE #( FOR <ls_ord> IN lt_item_to_order
+                       ( CORRESPONDING #( <ls_ord>-target ) ) )
+         RESULT DATA(lt_ALL_items).
+
+    LOOP AT lt_items ASSIGNING FIELD-SYMBOL(<ls_GROUP>)
+         GROUP BY ( is_draft        = <ls_GROUP>-%is_draft
+                    purchaseorderid = <ls_GROUP>-purchaseorderid ) ASSIGNING FIELD-SYMBOL(<ls_GROUP_key>).
+
+      LOOP AT lt_ALL_items ASSIGNING FIELD-SYMBOL(<ls_ALL_ITEMS>).
+        IF line_exists( keys[ KEY id COMPONENTS %tky = <ls_ALL_ITEMS>-%tky ] ).
+          CONTINUE.
+        ENDIF.
+        APPEND INITIAL LINE TO lt_EXISTING_items ASSIGNING FIELD-SYMBOL(<ls_existing_item>).
+        <ls_existing_item> = CORRESPONDING #( <ls_ALL_ITEMS> ).
+      ENDLOOP.
+
+      SORT lt_EXISTING_items BY itemNumber DESCENDING.
+      DATA(lv_count) = COND i( WHEN lines( lt_EXISTING_items ) > 0
+                               THEN VALUE #( lt_EXISTING_items[ 1 ]-itemNumber OPTIONAL )
+                               ELSE 0 ).
+
+      LOOP AT GROUP <ls_GROUP_key> ASSIGNING FIELD-SYMBOL(<ls_MEMBER>).
+
+        lv_count = lv_count + 1.
+        APPEND INITIAL LINE TO lt_item_update ASSIGNING FIELD-SYMBOL(<ls_item_update>).
+        <ls_item_update>-%tky = <ls_member>-%tky.
+        <ls_item_update>-%data-itemNumber = lv_count.
+        <ls_item_update>-%control-itemNumber = if_abap_behv=>mk-on.
+      ENDLOOP.
+
+    ENDLOOP.
+
+    IF lt_item_update IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    MODIFY ENTITIES OF ZPRU_U_PURCORDERHDR_TP
+           IN LOCAL MODE
+           ENTITY ItemTP
+           UPDATE FROM lt_item_update.
   ENDMETHOD.
 
   METHOD checkItemCurrency.
@@ -1689,6 +1918,7 @@ ENDCLASS.
 
 CLASS lsc_ZPRU_U_PURCORDERHDR_TP IMPLEMENTATION.
   METHOD finalize.
+      DATA(lt_root) = lcl_buffer=>root_buffer.
   ENDMETHOD.
 
   METHOD check_before_save.

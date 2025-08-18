@@ -28,7 +28,8 @@ etag master lastChanged
   {
     determination ( always ) calcTotalAmount;
     determination ( always ) setControlTimestamp;
-    determination ( always ) ItemTP~findWarehouseLocation;
+    determination ItemTP~findWarehouseLocation;
+    determination ItemTP~writeItemNumber;
     validation ( always ) checkDates;
     validation ( always ) checkHeaderCurrency;
     validation ( always ) checkSupplier;
@@ -45,7 +46,7 @@ etag master lastChanged
   internal function isSupplierBlacklisted result [0..1] Zpru_D_SupplierInBlackList;
   static function getMajorSupplier result [0..*] Zpru_D_ApprovedSupplier;
   function getStatusHistory deep result [0..*] ZPRU_D_HistoryRoot;
-  function getAllItems result selective [0..*] entity Zpru_PurcOrderItem_tp; //QQQ CHECK DUPLICATE ENTRIES
+  function getAllItems result selective [0..*] entity Zpru_PurcOrderItem_tp;
 
   validation checkDates on save { create; field orderDate, deliveryDate; }
   validation checkHeaderCurrency on save { create; }
