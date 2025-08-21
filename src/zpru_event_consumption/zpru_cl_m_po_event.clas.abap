@@ -1,0 +1,10 @@
+CLASS zpru_cl_m_po_event DEFINITION
+PUBLIC ABSTRACT
+FINAL
+FOR EVENTS OF Zpru_PurcOrderHdr_ODATA_Int.
+ENDCLASS.
+
+
+
+CLASS zpru_cl_m_po_event IMPLEMENTATION.
+ENDCLASS.

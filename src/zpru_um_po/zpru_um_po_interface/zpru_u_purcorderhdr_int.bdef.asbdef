@@ -1,0 +1,37 @@
+interface;
+use draft;
+
+define behavior for ZPRU_U_PURCORDERHDR_INT alias OrderInt
+{
+  use create;
+  use update;
+  use delete;
+
+  use action sendOrderStatisticToAzure;
+  use action ChangeStatus;
+  use action createFromTemplate;
+  use function getMajorSupplier;
+  use function getStatusHistory;
+  use function getAllItems;
+
+  use action Discard;
+  use action Activate;
+  use action Resume;
+  use action Edit;
+  use action Prepare;
+
+  use event orderCreated deep parameter Zpru_PurcOrderHdr_Abs_Redefine; // redefined event parameter
+
+  use association _items_tp { create; with draft; }
+}
+
+define behavior for ZPRU_U_PURCORDERITEM_INT alias ItemInt
+{
+  use update;
+  use delete;
+
+  use action markAsUrgent;
+  use function getInventoryStatus;
+
+  use association _header_tp { with draft; }
+}
