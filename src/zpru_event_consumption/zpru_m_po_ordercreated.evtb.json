@@ -1,0 +1,22 @@
+{
+  "formatVersion": "1",
+  "header": {
+    "description": "Event binding Order",
+    "originalLanguage": "en"
+  },
+  "producerNamespace": "zpru",
+  "producer": "P1E8825AB64DA6C9E8FCE54BC29F4AD49",
+  "producerVersion": "0001",
+  "boName": "Order",
+  "boOperation": "Create",
+  "producerType": "zpru.Order.Create.v*",
+  "events": [
+    {
+      "eventVersion": "0001",
+      "eventMinorVersion": 1,
+      "eventPatchVersion": 1,
+      "entityName": "ZPRU_PURCORDERHDR_TP",
+      "entityEventName": "ORDERCREATED"
+    }
+  ]
+}

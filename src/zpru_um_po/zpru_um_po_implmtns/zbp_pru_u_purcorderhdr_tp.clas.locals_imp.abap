@@ -1931,6 +1931,9 @@ CLASS lsc_ZPRU_U_PURCORDERHDR_TP IMPLEMENTATION.
     DATA lt_del_tab       TYPE lcl_buffer=>tt_root_db_keys.
     DATA lt_mod_child_tab TYPE TABLE OF zpru_po_item WITH EMPTY KEY. " qqq use on your  database tables
     DATA lt_del_child_tab TYPE lcl_buffer=>tt_child_db_keys.
+    " variables for event
+    DATA lt_payload           type table for event zpru_u_purcorderhdr_tp\\ordertp~ordercreated. " qqq use your BDEF
+
 
     IF line_exists( lcl_buffer=>root_buffer[ changed = abap_true ] ).
       LOOP AT lcl_buffer=>root_buffer ASSIGNING FIELD-SYMBOL(<ls_cr>) WHERE     changed  = abap_true
@@ -1966,6 +1969,74 @@ CLASS lsc_ZPRU_U_PURCORDERHDR_TP IMPLEMENTATION.
       ENDLOOP.
       DELETE zpru_po_item FROM TABLE @( CORRESPONDING #( lt_del_child_tab ) ). " qqq use on your  database tables
     ENDIF.
+
+*"   After save raise corresponding event
+*      APPEND INITIAL LINE TO lt_payload ASSIGNING FIELD-SYMBOL(<ls_PO_payload>).
+*      <ls_PO_payload>-%key-purchaseOrderId = <ls_order>-%key-purchaseOrderId.
+*      <ls_PO_payload>-%param-purchaseorderid2 = <ls_order>-purchaseorderid.
+*      <ls_PO_payload>-%param-orderdate2       = <ls_order>-orderdate.
+*      <ls_PO_payload>-%param-supplierid2      = <ls_order>-supplierid.
+*      <ls_PO_payload>-%param-suppliername2    = <ls_order>-suppliername.
+*      <ls_PO_payload>-%param-buyerid2         = <ls_order>-buyerid.
+*      <ls_PO_payload>-%param-buyername2       = <ls_order>-buyername.
+*      <ls_PO_payload>-%param-totalamount2     = <ls_order>-totalamount.
+*      <ls_PO_payload>-%param-headercurrency2  = <ls_order>-headercurrency.
+*      <ls_PO_payload>-%param-deliverydate2    = <ls_order>-deliverydate.
+*      <ls_PO_payload>-%param-status2          = <ls_order>-status.
+*      <ls_PO_payload>-%param-paymentterms2    = <ls_order>-paymentterms.
+*      <ls_PO_payload>-%param-shippingmethod2  = <ls_order>-shippingmethod.
+*
+*      <ls_PO_payload>-%control-purchaseorderid2 = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-orderdate2       = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-supplierid2      = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-suppliername2    = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-buyerid2         = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-buyername2       = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-totalamount2     = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-headercurrency2  = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-deliverydate2    = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-status2          = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-paymentterms2    = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-shippingmethod2  = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-_cross_bo        = if_abap_behv=>mk-on.
+*      <ls_PO_payload>-%control-_items_abs       = if_abap_behv=>mk-on.
+*
+*      LOOP AT create-itemtp ASSIGNING FIELD-SYMBOL(<ls_item>)
+*           WHERE purchaseorderid = <ls_order>-purchaseorderid.
+*        APPEND INITIAL LINE TO <ls_PO_payload>-%param-_items_abs ASSIGNING FIELD-SYMBOL(<ls_item_payload>).
+*        <ls_item_payload>-itemid2            = <ls_item>-itemid.
+*        <ls_item_payload>-itemnumber2        = <ls_item>-itemnumber.
+*        <ls_item_payload>-productid2         = <ls_item>-productid.
+*        <ls_item_payload>-productname2       = <ls_item>-productname.
+*        <ls_item_payload>-quantity2          = <ls_item>-quantity.
+*        <ls_item_payload>-unitprice2         = <ls_item>-unitprice.
+*        <ls_item_payload>-totalprice2        = <ls_item>-totalprice.
+*        <ls_item_payload>-deliverydate2      = <ls_item>-deliverydate.
+*        <ls_item_payload>-warehouselocation2 = <ls_item>-warehouselocation.
+*        <ls_item_payload>-itemcurrency2      = <ls_item>-itemcurrency.
+*        <ls_item_payload>-isurgent2          = <ls_item>-isurgent.
+*        <ls_item_payload>-%control-itemid2            = if_abap_behv=>mk-on.
+*        <ls_item_payload>-%control-itemnumber2        = if_abap_behv=>mk-on.
+*        <ls_item_payload>-%control-productid2         = if_abap_behv=>mk-on.
+*        <ls_item_payload>-%control-productname2       = if_abap_behv=>mk-on.
+*        <ls_item_payload>-%control-quantity2          = if_abap_behv=>mk-on.
+*        <ls_item_payload>-%control-unitprice2         = if_abap_behv=>mk-on.
+*        <ls_item_payload>-%control-totalprice2        = if_abap_behv=>mk-on.
+*        <ls_item_payload>-%control-deliverydate2      = if_abap_behv=>mk-on.
+*        <ls_item_payload>-%control-warehouselocation2 = if_abap_behv=>mk-on.
+*        <ls_item_payload>-%control-itemcurrency2      = if_abap_behv=>mk-on.
+*        <ls_item_payload>-%control-isurgent2          = if_abap_behv=>mk-on.
+*
+*      ENDLOOP.
+*    ENDLOOP.
+*
+*    IF lt_payload IS INITIAL.
+*      RETURN.
+*    ENDIF.
+*
+*    RAISE ENTITY EVENT zpru_u_purcorderhdr_tp~orderCreated " qqq use your BDEF
+*          FROM lt_payload.
+
   ENDMETHOD.
 
   METHOD cleanup.
