@@ -20,11 +20,12 @@ ENDINTERFACE.
 CLASS lcl_buffer DEFINITION.
   PUBLIC SECTION.
     TYPES: BEGIN OF gty_buffer,
-             instance TYPE zpru_u_purcorderhdr_tp, " qqq use your Transactional CDS
-             cid      TYPE string,
-             changed  TYPE abap_bool,
-             deleted  TYPE abap_bool,
-             is_draft TYPE abp_behv_flag,
+             instance      TYPE zpru_u_purcorderhdr_tp, " qqq use your Transactional CDS
+             cid           TYPE string,
+             newly_created TYPE abap_bool,
+             changed       TYPE abap_bool,
+             deleted       TYPE abap_bool,
+             is_draft      TYPE abp_behv_flag,
            END OF gty_buffer.
 
     TYPES: BEGIN OF gty_buffer_child,
@@ -347,7 +348,6 @@ ENDCLASS.
 
 CLASS lhc_OrderTP IMPLEMENTATION.
   METHOD get_instance_features.
-
     IF keys IS INITIAL.
       APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
       <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
@@ -389,7 +389,6 @@ CLASS lhc_OrderTP IMPLEMENTATION.
         <ls_result>-%features-%delete             = if_abap_behv=>fc-o-disabled.
       ENDIF.
     ENDLOOP.
-
   ENDMETHOD.
 
   METHOD get_instance_authorizations.
@@ -439,8 +438,8 @@ CLASS lhc_OrderTP IMPLEMENTATION.
         <ls_result>-%action-edit               = if_abap_behv=>auth-unauthorized.
         <ls_result>-%action-createfromtemplate = if_abap_behv=>auth-unauthorized.
 
-        IF requested_authorizations-%action-Edit = if_abap_behv=>mk-on OR
-           requested_authorizations-%delete = if_abap_behv=>mk-on.
+        IF    requested_authorizations-%action-Edit = if_abap_behv=>mk-on
+           OR requested_authorizations-%delete      = if_abap_behv=>mk-on.
           APPEND INITIAL LINE TO failed-ordertp ASSIGNING <ls_failed>.
           <ls_failed>-%tky = <ls_instance>-%tky.
           <ls_failed>-%fail-cause = if_abap_behv=>cause-unauthorized.
@@ -463,8 +462,6 @@ CLASS lhc_OrderTP IMPLEMENTATION.
         <ls_result>-%action-createfromtemplate = if_abap_behv=>auth-allowed.
       ENDIF.
     ENDLOOP.
-
-
   ENDMETHOD.
 
   METHOD get_global_authorizations.
@@ -528,6 +525,10 @@ CLASS lhc_OrderTP IMPLEMENTATION.
             " it is expected that createOn already have been filled by time value
             " otherwise check semantic annotation on your transactional CDS
             instance-lastChanged      = <ls_create>-createOn
+
+            newly_created             = abap_true " qqq to raise event on order creation I must distinct created and updated instances
+            " alternatively we can check db via select, but flag is likely be easier.
+
             changed                   = abap_true
             deleted                   = abap_false ) TO lcl_buffer=>root_buffer.
 
@@ -563,31 +564,30 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD precheck_create.
-
-    SELECT purchaseOrderId
-    FROM zpru_u_purcorderhdr_tp " qqq use your transactional CDS
-    FOR ALL ENTRIES IN @entities
-    WHERE purchaseOrderId = @entities-purchaseOrderId
-    INTO TABLE @DATA(lt_existing_po).
+    SELECT purchaseOrderId FROM zpru_u_purcorderhdr_tp " qqq use your transactional CDS
+      FOR ALL ENTRIES IN @entities
+      WHERE purchaseOrderId = @entities-purchaseOrderId
+      INTO TABLE @DATA(lt_existing_po).
 
     LOOP AT entities ASSIGNING FIELD-SYMBOL(<ls_entity>).
-      IF line_exists( lt_existing_po[ table_line = <ls_entity>-purchaseOrderId ] ).
-        APPEND INITIAL LINE TO failed-ordertp ASSIGNING FIELD-SYMBOL(<ls_order_failed>).
-        <ls_order_failed>-%cid      = <ls_entity>-%cid.
-        <ls_order_failed>-%key      = <ls_entity>-%key.
-        <ls_order_failed>-%is_draft = <ls_entity>-%is_draft.
-        <ls_order_failed>-%create   = if_abap_behv=>mk-on.
-
-        APPEND VALUE #( %cid      = <ls_entity>-%cid
-                        %key      = <ls_entity>-%key
-                        %is_draft = <ls_entity>-%is_draft
-                        %create   = if_abap_behv=>mk-on
-                        %msg      = new_message_with_text( severity = if_abap_behv_message=>severity-error
-                                                           text     = 'Duplicate in DB' ) )
-               TO reported-ordertp.
+      IF NOT line_exists( lt_existing_po[ table_line = <ls_entity>-purchaseOrderId ] ).
+        CONTINUE.
       ENDIF.
-    ENDLOOP.
 
+      APPEND INITIAL LINE TO failed-ordertp ASSIGNING FIELD-SYMBOL(<ls_order_failed>).
+      <ls_order_failed>-%cid      = <ls_entity>-%cid.
+      <ls_order_failed>-%key      = <ls_entity>-%key.
+      <ls_order_failed>-%is_draft = <ls_entity>-%is_draft.
+      <ls_order_failed>-%create   = if_abap_behv=>mk-on.
+
+      APPEND VALUE #( %cid      = <ls_entity>-%cid
+                      %key      = <ls_entity>-%key
+                      %is_draft = <ls_entity>-%is_draft
+                      %create   = if_abap_behv=>mk-on
+                      %msg      = new_message_with_text( severity = if_abap_behv_message=>severity-error
+                                                         text     = 'Duplicate in DB' ) )
+             TO reported-ordertp.
+    ENDLOOP.
   ENDMETHOD.
 
   METHOD update.
@@ -654,8 +654,7 @@ CLASS lhc_OrderTP IMPLEMENTATION.
         " otherwise check semantic annotation on your transactional CDS
         <ls_up>-instance-lastChanged      = COND #( WHEN <ls_update>-changedOn IS NOT INITIAL
                                                     THEN <ls_update>-changedOn
-                                                    ELSE <ls_up>-instance-lastChanged )
-          .
+                                                    ELSE <ls_up>-instance-lastChanged ).
         <ls_up>-changed = abap_true.
         <ls_up>-deleted = abap_false.
       ELSE.
@@ -693,8 +692,11 @@ CLASS lhc_OrderTP IMPLEMENTATION.
                     deleted                  = abap_false ASSIGNING FIELD-SYMBOL(<ls_del>).
 
       IF sy-subrc = 0.
-        <ls_del>-changed = abap_false.
-        <ls_del>-deleted = abap_true.
+
+        <ls_del>-newly_created = abap_false. " qqq for event on created order
+
+        <ls_del>-changed       = abap_false.
+        <ls_del>-deleted       = abap_true.
         " qqq cascade delete
         LOOP AT lcl_buffer=>child_buffer ASSIGNING FIELD-SYMBOL(<ls_child_del>)
              WHERE     instance-purchaseOrderId = <ls_del>-instance-purchaseOrderId
@@ -1064,23 +1066,23 @@ CLASS lhc_OrderTP IMPLEMENTATION.
 
     LOOP AT lt_order_draft ASSIGNING FIELD-SYMBOL(<ls_order_draft>).
 
-      DELETE lcl_buffer=>root_buffer WHERE instance-purchaseOrderId = <ls_order_draft>-purchaseOrderId AND
-                                           is_draft                 = if_abap_behv=>mk-on AND
-                                           deleted                  = abap_false.
+      DELETE lcl_buffer=>root_buffer WHERE     instance-purchaseOrderId = <ls_order_draft>-purchaseOrderId
+                                           AND is_draft                 = if_abap_behv=>mk-on
+                                           AND deleted                  = abap_false.
 
       LOOP AT lt_items_draft ASSIGNING FIELD-SYMBOL(<ls_item_draft>)
            WHERE purchaseOrderId = <ls_order_draft>-purchaseOrderId.
 
-        DELETE lcl_buffer=>child_buffer WHERE  instance-purchaseOrderId = <ls_item_draft>-purchaseOrderId AND
-                                               instance-itemId          = <ls_item_draft>-itemId AND
-                                               is_draft                 = if_abap_behv=>mk-on AND
-                                               deleted                  = abap_false.
+        DELETE lcl_buffer=>child_buffer WHERE     instance-purchaseOrderId = <ls_item_draft>-purchaseOrderId
+                                              AND instance-itemId          = <ls_item_draft>-itemId
+                                              AND is_draft                 = if_abap_behv=>mk-on
+                                              AND deleted                  = abap_false.
       ENDLOOP.
     ENDLOOP.
   ENDMETHOD.
 
   METHOD ChangeStatus.
-    DATA lt_po_update   TYPE TABLE FOR UPDATE zpru_u_purcorderhdr_tp\\OrderTP. " qqq change on your type
+    DATA lt_po_update TYPE TABLE FOR UPDATE zpru_u_purcorderhdr_tp\\OrderTP. " qqq change on your type
 
     IF keys IS INITIAL.
       APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
@@ -1130,7 +1132,6 @@ CLASS lhc_OrderTP IMPLEMENTATION.
              ENTITY OrderTP
              UPDATE FROM lt_po_update.
     ENDIF.
-
   ENDMETHOD.
 
   METHOD precheck_ChangeStatus.
@@ -1140,7 +1141,6 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD Discard.
-
     lcl_buffer=>prep_root_buffer( VALUE #( FOR <ls_k3>
                                            IN keys
                                            ( purchaseOrderId = <ls_k3>-purchaseOrderId
@@ -1153,14 +1153,14 @@ CLASS lhc_OrderTP IMPLEMENTATION.
 
     LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_key>).
 
-      DELETE lcl_buffer=>root_buffer WHERE instance-purchaseOrderId = <ls_key>-purchaseOrderId AND
-                                           is_draft                 = if_abap_behv=>mk-on AND
-                                           deleted                  = abap_false.
+      DELETE lcl_buffer=>root_buffer WHERE     instance-purchaseOrderId = <ls_key>-purchaseOrderId
+                                           AND is_draft                 = if_abap_behv=>mk-on
+                                           AND deleted                  = abap_false.
 
       DELETE lcl_buffer=>child_buffer
-           WHERE     instance-purchaseOrderId = <ls_key>-purchaseOrderId AND
-                     is_draft                 = if_abap_behv=>mk-on AND
-                     deleted                  = abap_false.
+             WHERE     instance-purchaseOrderId = <ls_key>-purchaseOrderId
+                   AND is_draft                 = if_abap_behv=>mk-on
+                   AND deleted                  = abap_false.
     ENDLOOP.
   ENDMETHOD.
 
@@ -1225,7 +1225,6 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD calctotalamount.
-
     DATA lt_order_update     TYPE TABLE FOR UPDATE zpru_u_purcorderhdr_tp\\ordertp.
     DATA lv_new_total_amount TYPE zpru_u_purcorderhdr_tp-totalAmount.
 
@@ -1261,7 +1260,7 @@ CLASS lhc_OrderTP IMPLEMENTATION.
 
       CLEAR lv_new_total_amount.
       LOOP AT lt_items ASSIGNING FIELD-SYMBOL(<ls_item>)
-                       WHERE purchaseOrderId = <ls_instance>-purchaseOrderId.
+           WHERE purchaseOrderId = <ls_instance>-purchaseOrderId.
         lv_new_total_amount = lv_new_total_amount + <ls_item>-%data-totalPrice.
       ENDLOOP.
       " prevent auto triggering
@@ -1282,7 +1281,6 @@ CLASS lhc_OrderTP IMPLEMENTATION.
            IN LOCAL MODE
            ENTITY OrderTP
            UPDATE FROM lt_order_update.
-
   ENDMETHOD.
 
   METHOD setControlTimestamp.
@@ -1348,46 +1346,45 @@ CLASS lhc_OrderTP IMPLEMENTATION.
 
   METHOD checkSupplier.
   ENDMETHOD.
-  METHOD precheck_cba_Items_tp.
 
-    SELECT purchaseOrderId, itemId
-        FROM zpru_u_purcorderitem_tp " qqq use your transactional CDS
-        FOR ALL ENTRIES IN @entities
-        WHERE purchaseOrderId = @entities-purchaseOrderId
-        INTO TABLE @DATA(lt_existing_items).
+  METHOD precheck_cba_Items_tp.
+    SELECT purchaseOrderId, itemId FROM zpru_u_purcorderitem_tp " qqq use your transactional CDS
+      FOR ALL ENTRIES IN @entities
+      WHERE purchaseOrderId = @entities-purchaseOrderId
+      INTO TABLE @DATA(lt_existing_items).
 
     LOOP AT entities ASSIGNING FIELD-SYMBOL(<ls_entity>).
       LOOP AT <ls_entity>-%target ASSIGNING FIELD-SYMBOL(<ls_item>).
-        IF line_exists( lt_existing_items[ purchaseOrderId = <ls_entity>-purchaseOrderId
-                                           itemId          = <ls_item>-itemId ] ).
-          APPEND VALUE #( %cid             = <ls_entity>-%cid_ref
-                          %tky             = <ls_entity>-%tky
-                          %assoc-_items_tp = if_abap_behv=>mk-on
-                          %fail-cause      = if_abap_behv=>cause-unspecific ) TO failed-ordertp.
-
-          APPEND VALUE #( %cid = <ls_entity>-%cid_ref
-                          %tky = <ls_entity>-%tky
-                          %msg = new_message_with_text( severity = if_abap_behv_message=>severity-error
-                                                        text     = 'root to child failed - already exists.' ) )
-                 TO reported-ordertp.
-
-          APPEND VALUE #( %cid        = <ls_item>-%cid
-                          %key        = VALUE #( purchaseOrderId = <ls_entity>-purchaseOrderId
-                                                 itemId          = <ls_item>-itemId )
-                          %fail-cause = if_abap_behv=>cause-dependency ) TO failed-itemtp.
-
-          APPEND VALUE #( %cid = <ls_item>-%cid
-                          %key = VALUE #( purchaseOrderId = <ls_entity>-purchaseOrderId
-                                          itemId          = <ls_item>-itemId )
-                          %msg = new_message_with_text( severity = if_abap_behv_message=>severity-error
-                                                        text     = 'root to child failed - already exists2.' ) )
-                 TO reported-itemtp.
+        IF NOT line_exists( lt_existing_items[ purchaseOrderId = <ls_entity>-purchaseOrderId
+                                               itemId          = <ls_item>-itemId ] ).
+          CONTINUE.
         ENDIF.
+
+        APPEND VALUE #( %cid             = <ls_entity>-%cid_ref
+                        %tky             = <ls_entity>-%tky
+                        %assoc-_items_tp = if_abap_behv=>mk-on
+                        %fail-cause      = if_abap_behv=>cause-unspecific ) TO failed-ordertp.
+
+        APPEND VALUE #( %cid = <ls_entity>-%cid_ref
+                        %tky = <ls_entity>-%tky
+                        %msg = new_message_with_text( severity = if_abap_behv_message=>severity-error
+                                                      text     = 'root to child failed - already exists.' ) )
+               TO reported-ordertp.
+
+        APPEND VALUE #( %cid        = <ls_item>-%cid
+                        %key        = VALUE #( purchaseOrderId = <ls_entity>-purchaseOrderId
+                                               itemId          = <ls_item>-itemId )
+                        %fail-cause = if_abap_behv=>cause-dependency ) TO failed-itemtp.
+
+        APPEND VALUE #( %cid = <ls_item>-%cid
+                        %key = VALUE #( purchaseOrderId = <ls_entity>-purchaseOrderId
+                                        itemId          = <ls_item>-itemId )
+                        %msg = new_message_with_text( severity = if_abap_behv_message=>severity-error
+                                                      text     = 'root to child failed - already exists2.' ) )
+               TO reported-itemtp.
       ENDLOOP.
     ENDLOOP.
-
   ENDMETHOD.
-
 ENDCLASS.
 
 
@@ -1548,7 +1545,6 @@ CLASS lhc_ItemTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD delete.
-
     DATA lt_root_upd TYPE TABLE FOR UPDATE zpru_u_purcorderhdr_tp. " qqq use your BDEF
 
     lcl_buffer=>prep_child_buffer( VALUE #( FOR <ls_k>
@@ -1588,7 +1584,7 @@ CLASS lhc_ItemTP IMPLEMENTATION.
     ENDLOOP.
 
     SORT lt_root_upd BY purchaseOrderId
-                          %is_draft.
+                        %is_draft.
     DELETE ADJACENT DUPLICATES FROM lt_root_upd COMPARING purchaseOrderId %is_draft.
 
     GET TIME STAMP FIELD DATA(lv_now).
@@ -1602,8 +1598,6 @@ CLASS lhc_ItemTP IMPLEMENTATION.
              IN LOCAL MODE
              ENTITY OrderTP UPDATE FROM lt_root_upd.
     ENDIF.
-
-
   ENDMETHOD.
 
   METHOD read.
@@ -1804,15 +1798,14 @@ CLASS lhc_ItemTP IMPLEMENTATION.
            IN LOCAL MODE
            ENTITY ItemTP
            UPDATE FROM lt_item_update.
-
   ENDMETHOD.
 
   METHOD findWarehouseLocation.
   ENDMETHOD.
 
   METHOD writeItemNumber.
-  DATA lt_item_update    type table for update ZPRU_U_PURCORDERHDR_TP\\itemtp.
-    DATA lt_EXISTING_items TYPE TABLE FOR READ RESULT ZPRU_U_PURCORDERHDR_TP\\itemtp.
+    DATA lt_item_update    TYPE TABLE FOR UPDATE zpru_u_purcorderhdr_tp\\itemtp.
+    DATA lt_EXISTING_items TYPE TABLE FOR READ RESULT zpru_u_purcorderhdr_tp\\itemtp.
 
     IF keys IS INITIAL.
       APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
@@ -1822,7 +1815,7 @@ CLASS lhc_ItemTP IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    READ ENTITIES OF ZPRU_U_PURCORDERHDR_TP
+    READ ENTITIES OF zpru_u_purcorderhdr_tp
          IN LOCAL MODE
          ENTITY ItemTP
          ALL FIELDS
@@ -1837,7 +1830,7 @@ CLASS lhc_ItemTP IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    READ ENTITIES OF ZPRU_U_PURCORDERHDR_TP
+    READ ENTITIES OF zpru_u_purcorderhdr_tp
          IN LOCAL MODE
          ENTITY ItemTP BY \_header_tp
          ALL FIELDS
@@ -1847,7 +1840,7 @@ CLASS lhc_ItemTP IMPLEMENTATION.
                          %tky-itemId          = <ls_i>-itemId  ) )
          LINK DATA(lt_item_to_order).
 
-    READ ENTITIES OF ZPRU_U_PURCORDERHDR_TP
+    READ ENTITIES OF zpru_u_purcorderhdr_tp
          IN LOCAL MODE
          ENTITY OrderTP BY \_items_tp
          ALL FIELDS
@@ -1887,7 +1880,7 @@ CLASS lhc_ItemTP IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    MODIFY ENTITIES OF ZPRU_U_PURCORDERHDR_TP
+    MODIFY ENTITIES OF zpru_u_purcorderhdr_tp
            IN LOCAL MODE
            ENTITY ItemTP
            UPDATE FROM lt_item_update.
@@ -1918,7 +1911,8 @@ ENDCLASS.
 
 CLASS lsc_ZPRU_U_PURCORDERHDR_TP IMPLEMENTATION.
   METHOD finalize.
-      DATA(lt_root) = lcl_buffer=>root_buffer.
+    " TODO: variable is assigned but never used (ABAP cleaner)
+    DATA(lt_root) = lcl_buffer=>root_buffer.
   ENDMETHOD.
 
   METHOD check_before_save.
@@ -1932,8 +1926,7 @@ CLASS lsc_ZPRU_U_PURCORDERHDR_TP IMPLEMENTATION.
     DATA lt_mod_child_tab TYPE TABLE OF zpru_po_item WITH EMPTY KEY. " qqq use on your  database tables
     DATA lt_del_child_tab TYPE lcl_buffer=>tt_child_db_keys.
     " variables for event
-    DATA lt_payload           type table for event zpru_u_purcorderhdr_tp\\ordertp~ordercreated. " qqq use your BDEF
-
+    DATA lt_payload       TYPE TABLE FOR EVENT zpru_u_purcorderhdr_tp\\ordertp~ordercreated. " qqq use your BDEF
 
     IF line_exists( lcl_buffer=>root_buffer[ changed = abap_true ] ).
       LOOP AT lcl_buffer=>root_buffer ASSIGNING FIELD-SYMBOL(<ls_cr>) WHERE     changed  = abap_true
@@ -1970,73 +1963,76 @@ CLASS lsc_ZPRU_U_PURCORDERHDR_TP IMPLEMENTATION.
       DELETE zpru_po_item FROM TABLE @( CORRESPONDING #( lt_del_child_tab ) ). " qqq use on your  database tables
     ENDIF.
 
-*"   After save raise corresponding event
-*      APPEND INITIAL LINE TO lt_payload ASSIGNING FIELD-SYMBOL(<ls_PO_payload>).
-*      <ls_PO_payload>-%key-purchaseOrderId = <ls_order>-%key-purchaseOrderId.
-*      <ls_PO_payload>-%param-purchaseorderid2 = <ls_order>-purchaseorderid.
-*      <ls_PO_payload>-%param-orderdate2       = <ls_order>-orderdate.
-*      <ls_PO_payload>-%param-supplierid2      = <ls_order>-supplierid.
-*      <ls_PO_payload>-%param-suppliername2    = <ls_order>-suppliername.
-*      <ls_PO_payload>-%param-buyerid2         = <ls_order>-buyerid.
-*      <ls_PO_payload>-%param-buyername2       = <ls_order>-buyername.
-*      <ls_PO_payload>-%param-totalamount2     = <ls_order>-totalamount.
-*      <ls_PO_payload>-%param-headercurrency2  = <ls_order>-headercurrency.
-*      <ls_PO_payload>-%param-deliverydate2    = <ls_order>-deliverydate.
-*      <ls_PO_payload>-%param-status2          = <ls_order>-status.
-*      <ls_PO_payload>-%param-paymentterms2    = <ls_order>-paymentterms.
-*      <ls_PO_payload>-%param-shippingmethod2  = <ls_order>-shippingmethod.
-*
-*      <ls_PO_payload>-%control-purchaseorderid2 = if_abap_behv=>mk-on.
-*      <ls_PO_payload>-%control-orderdate2       = if_abap_behv=>mk-on.
-*      <ls_PO_payload>-%control-supplierid2      = if_abap_behv=>mk-on.
-*      <ls_PO_payload>-%control-suppliername2    = if_abap_behv=>mk-on.
-*      <ls_PO_payload>-%control-buyerid2         = if_abap_behv=>mk-on.
-*      <ls_PO_payload>-%control-buyername2       = if_abap_behv=>mk-on.
-*      <ls_PO_payload>-%control-totalamount2     = if_abap_behv=>mk-on.
-*      <ls_PO_payload>-%control-headercurrency2  = if_abap_behv=>mk-on.
-*      <ls_PO_payload>-%control-deliverydate2    = if_abap_behv=>mk-on.
-*      <ls_PO_payload>-%control-status2          = if_abap_behv=>mk-on.
-*      <ls_PO_payload>-%control-paymentterms2    = if_abap_behv=>mk-on.
-*      <ls_PO_payload>-%control-shippingmethod2  = if_abap_behv=>mk-on.
-*      <ls_PO_payload>-%control-_cross_bo        = if_abap_behv=>mk-on.
-*      <ls_PO_payload>-%control-_items_abs       = if_abap_behv=>mk-on.
-*
-*      LOOP AT create-itemtp ASSIGNING FIELD-SYMBOL(<ls_item>)
-*           WHERE purchaseorderid = <ls_order>-purchaseorderid.
-*        APPEND INITIAL LINE TO <ls_PO_payload>-%param-_items_abs ASSIGNING FIELD-SYMBOL(<ls_item_payload>).
-*        <ls_item_payload>-itemid2            = <ls_item>-itemid.
-*        <ls_item_payload>-itemnumber2        = <ls_item>-itemnumber.
-*        <ls_item_payload>-productid2         = <ls_item>-productid.
-*        <ls_item_payload>-productname2       = <ls_item>-productname.
-*        <ls_item_payload>-quantity2          = <ls_item>-quantity.
-*        <ls_item_payload>-unitprice2         = <ls_item>-unitprice.
-*        <ls_item_payload>-totalprice2        = <ls_item>-totalprice.
-*        <ls_item_payload>-deliverydate2      = <ls_item>-deliverydate.
-*        <ls_item_payload>-warehouselocation2 = <ls_item>-warehouselocation.
-*        <ls_item_payload>-itemcurrency2      = <ls_item>-itemcurrency.
-*        <ls_item_payload>-isurgent2          = <ls_item>-isurgent.
-*        <ls_item_payload>-%control-itemid2            = if_abap_behv=>mk-on.
-*        <ls_item_payload>-%control-itemnumber2        = if_abap_behv=>mk-on.
-*        <ls_item_payload>-%control-productid2         = if_abap_behv=>mk-on.
-*        <ls_item_payload>-%control-productname2       = if_abap_behv=>mk-on.
-*        <ls_item_payload>-%control-quantity2          = if_abap_behv=>mk-on.
-*        <ls_item_payload>-%control-unitprice2         = if_abap_behv=>mk-on.
-*        <ls_item_payload>-%control-totalprice2        = if_abap_behv=>mk-on.
-*        <ls_item_payload>-%control-deliverydate2      = if_abap_behv=>mk-on.
-*        <ls_item_payload>-%control-warehouselocation2 = if_abap_behv=>mk-on.
-*        <ls_item_payload>-%control-itemcurrency2      = if_abap_behv=>mk-on.
-*        <ls_item_payload>-%control-isurgent2          = if_abap_behv=>mk-on.
-*
-*      ENDLOOP.
-*    ENDLOOP.
-*
-*    IF lt_payload IS INITIAL.
-*      RETURN.
-*    ENDIF.
-*
-*    RAISE ENTITY EVENT zpru_u_purcorderhdr_tp~orderCreated " qqq use your BDEF
-*          FROM lt_payload.
+    "qqq logic below is relevant for raising event
+    LOOP AT lcl_buffer=>root_buffer ASSIGNING FIELD-SYMBOL(<ls_order>)
+                                    WHERE newly_created = abap_true.
 
+      "   After save raise corresponding event
+      APPEND INITIAL LINE TO lt_payload ASSIGNING FIELD-SYMBOL(<ls_PO_payload>).
+      <ls_PO_payload>-%key-purchaseOrderId    = <ls_order>-instance-purchaseOrderId.
+      <ls_PO_payload>-%param-purchaseorderid2 = <ls_order>-instance-purchaseorderid.
+      <ls_PO_payload>-%param-orderdate2       = <ls_order>-instance-orderdate.
+      <ls_PO_payload>-%param-supplierid2      = <ls_order>-instance-supplierid.
+      <ls_PO_payload>-%param-suppliername2    = <ls_order>-instance-suppliername.
+      <ls_PO_payload>-%param-buyerid2         = <ls_order>-instance-buyerid.
+      <ls_PO_payload>-%param-buyername2       = <ls_order>-instance-buyername.
+      <ls_PO_payload>-%param-totalamount2     = <ls_order>-instance-totalamount.
+      <ls_PO_payload>-%param-headercurrency2  = <ls_order>-instance-headercurrency.
+      <ls_PO_payload>-%param-deliverydate2    = <ls_order>-instance-deliverydate.
+      <ls_PO_payload>-%param-status2          = <ls_order>-instance-status.
+      <ls_PO_payload>-%param-paymentterms2    = <ls_order>-instance-paymentterms.
+      <ls_PO_payload>-%param-shippingmethod2  = <ls_order>-instance-shippingmethod.
+
+      <ls_PO_payload>-%control-purchaseorderid2 = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-orderdate2       = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-supplierid2      = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-suppliername2    = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-buyerid2         = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-buyername2       = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-totalamount2     = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-headercurrency2  = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-deliverydate2    = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-status2          = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-paymentterms2    = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-shippingmethod2  = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-_cross_bo        = if_abap_behv=>mk-on.
+      <ls_PO_payload>-%control-_items_abs       = if_abap_behv=>mk-on.
+
+      LOOP AT lcl_buffer=>child_buffer ASSIGNING FIELD-SYMBOL(<ls_item>)
+           WHERE instance-purchaseorderid = <ls_order>-instance-purchaseorderid.
+        APPEND INITIAL LINE TO <ls_PO_payload>-%param-_items_abs ASSIGNING FIELD-SYMBOL(<ls_item_payload>).
+        <ls_item_payload>-itemid2            = <ls_item>-instance-itemid.
+        <ls_item_payload>-itemnumber2        = <ls_item>-instance-itemnumber.
+        <ls_item_payload>-productid2         = <ls_item>-instance-productid.
+        <ls_item_payload>-productname2       = <ls_item>-instance-productname.
+        <ls_item_payload>-quantity2          = <ls_item>-instance-quantity.
+        <ls_item_payload>-unitprice2         = <ls_item>-instance-unitprice.
+        <ls_item_payload>-totalprice2        = <ls_item>-instance-totalprice.
+        <ls_item_payload>-deliverydate2      = <ls_item>-instance-deliverydate.
+        <ls_item_payload>-warehouselocation2 = <ls_item>-instance-warehouselocation.
+        <ls_item_payload>-itemcurrency2      = <ls_item>-instance-itemcurrency.
+        <ls_item_payload>-isurgent2          = <ls_item>-instance-isurgent.
+        <ls_item_payload>-%control-itemid2            = if_abap_behv=>mk-on.
+        <ls_item_payload>-%control-itemnumber2        = if_abap_behv=>mk-on.
+        <ls_item_payload>-%control-productid2         = if_abap_behv=>mk-on.
+        <ls_item_payload>-%control-productname2       = if_abap_behv=>mk-on.
+        <ls_item_payload>-%control-quantity2          = if_abap_behv=>mk-on.
+        <ls_item_payload>-%control-unitprice2         = if_abap_behv=>mk-on.
+        <ls_item_payload>-%control-totalprice2        = if_abap_behv=>mk-on.
+        <ls_item_payload>-%control-deliverydate2      = if_abap_behv=>mk-on.
+        <ls_item_payload>-%control-warehouselocation2 = if_abap_behv=>mk-on.
+        <ls_item_payload>-%control-itemcurrency2      = if_abap_behv=>mk-on.
+        <ls_item_payload>-%control-isurgent2          = if_abap_behv=>mk-on.
+
+      ENDLOOP.
+    ENDLOOP.
+
+    IF lt_payload IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    RAISE ENTITY EVENT zpru_u_purcorderhdr_tp~orderCreated " qqq use your BDEF
+          FROM lt_payload.
   ENDMETHOD.
 
   METHOD cleanup.
