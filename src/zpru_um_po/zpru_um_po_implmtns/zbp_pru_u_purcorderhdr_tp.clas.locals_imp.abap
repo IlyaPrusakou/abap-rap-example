@@ -1943,6 +1943,40 @@ CLASS lsc_ZPRU_U_PURCORDERHDR_TP IMPLEMENTATION.
         APPEND VALUE #( purchase_order_id = <ls_del>-instance-purchaseOrderId ) TO lt_del_tab.
       ENDLOOP.
       DELETE zpru_purc_order FROM TABLE @( CORRESPONDING #( lt_del_tab ) ). " qqq use on your  database tables
+
+      """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+      " qqq logic below relates to issue with different node set for managed implementation ZPRU_PURCORDERHDR_TP
+      " unmanaged implementation ZPRU_U_PURCORDERHDR_TP. As far asa you know managed BO has additionally
+      " TEXT node for order and also TAG  as extension node. Since both BO work with the same tables.
+      " We can create BO via managed implementation, text and tag nodes become create either. Then we can
+      " delete instance via unamanged BO, as a result orphan nodes for text and tag remain.
+      " solution is to provide additional deletion in cascade style
+
+      IF lt_del_tab IS NOT INITIAL.
+        " cascade deletion for TEXT node
+        SELECT purchase_order_id, language
+          FROM zpru_purc_ordert AS text
+          FOR ALL ENTRIES IN @lt_del_tab
+          WHERE text~purchase_order_id = @lt_del_tab-purchase_order_id
+          INTO TABLE @DATA(lt_text_2_del).
+
+        IF lt_text_2_del IS NOT INITIAL.
+          DELETE zpru_purc_ordert FROM TABLE @( CORRESPONDING #( lt_text_2_del ) ).
+        ENDIF.
+
+        " cascade deletion for TAG node
+        SELECT purchase_order_id, tag_id
+          FROM zpru_order_tag AS tag
+          FOR ALL ENTRIES IN @lt_del_tab
+          WHERE tag~purchase_order_id = @lt_del_tab-purchase_order_id
+          INTO TABLE @DATA(lt_TAG_2_del).
+
+        IF lt_TAG_2_del IS NOT INITIAL.
+          DELETE zpru_order_tag FROM TABLE @( CORRESPONDING #( lt_TAG_2_del ) ).
+        ENDIF.
+      ENDIF.
+      """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
     ENDIF.
 
     IF line_exists( lcl_buffer=>child_buffer[ changed = abap_true ] ).
@@ -1963,9 +1997,9 @@ CLASS lsc_ZPRU_U_PURCORDERHDR_TP IMPLEMENTATION.
       DELETE zpru_po_item FROM TABLE @( CORRESPONDING #( lt_del_child_tab ) ). " qqq use on your  database tables
     ENDIF.
 
-    "qqq logic below is relevant for raising event
+    " qqq logic below is relevant for raising event
     LOOP AT lcl_buffer=>root_buffer ASSIGNING FIELD-SYMBOL(<ls_order>)
-                                    WHERE newly_created = abap_true.
+         WHERE newly_created = abap_true.
 
       "   After save raise corresponding event
       APPEND INITIAL LINE TO lt_payload ASSIGNING FIELD-SYMBOL(<ls_PO_payload>).

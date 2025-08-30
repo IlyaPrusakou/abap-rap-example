@@ -12,7 +12,7 @@ with control
 
   field ( mandatory : execute ) buyerId3, supplierId3, orderDate3; // always must be supplied
 
-  mapping for zpru_purcorderhdr_abstract corresponding extensible // map on event parameter BDEF for the sake of redefinition
+  deep mapping for zpru_purcorderhdr_abstract corresponding extensible // map on event parameter BDEF for the sake of redefinition
     {
       buyerId3         = buyerId2;
       buyerName3       = buyerName2;
@@ -26,6 +26,7 @@ with control
       supplierId3      = supplierId2;
       supplierName3    = supplierName2;
       totalAmount3     = totalAmount2;
+     sub _items_abs3      = _items_abs;
     }
 
   deep mapping for zpru_purcorderhdr_partner corresponding extensible // map on dictionary structure
@@ -48,6 +49,7 @@ with control
 
 define behavior for Zpru_PurcOrderItem_Abs_Redefin alias itemAbstract3
 extensible
+with control
 {
   association _header_abs3;
 
