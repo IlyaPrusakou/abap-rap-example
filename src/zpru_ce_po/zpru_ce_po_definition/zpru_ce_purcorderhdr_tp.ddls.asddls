@@ -175,6 +175,13 @@ define root custom entity ZPRU_CE_PURCORDERHDR_TP
       @EndUserText.label:'Chaned On'
       @Semantics.systemDateTime.localInstanceLastChangedAt: true
       changedOn        : abp_locinst_lastchange_tstmpl;
+      
+      @UI              : { lineItem:       [ { position: 170 } ],
+             identification: [ { position: 170 } ],
+             fieldGroup:     [ { qualifier: 'Fieldgroup1',
+                                 position: 170 } ] }
+      @EndUserText.label:'Summary'
+      summary : abap.string;
 
       @Consumption.hidden: true
       @Semantics.systemDateTime.lastChangedAt: true

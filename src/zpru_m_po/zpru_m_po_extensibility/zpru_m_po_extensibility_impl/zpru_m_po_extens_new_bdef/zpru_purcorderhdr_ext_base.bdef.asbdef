@@ -1,9 +1,0 @@
-extension implementation in class zbp_pru_purcorderhdr_ext_base unique;
-
-extend behavior for OrderTP
-{
-}
-
-extend behavior for ItemTP
-{
-}

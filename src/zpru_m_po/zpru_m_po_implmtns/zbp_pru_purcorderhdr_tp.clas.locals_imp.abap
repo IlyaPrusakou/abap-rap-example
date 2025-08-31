@@ -1450,7 +1450,7 @@ CLASS lhc_ItemTP IMPLEMENTATION.
     READ ENTITIES OF zpru_purcorderhdr_tp
          IN LOCAL MODE
          ENTITY ItemTP
-         FIELDS ( quantity unitPrice )
+         FIELDS ( quantity unitPrice totalPrice )
          WITH CORRESPONDING #( keys )
          RESULT DATA(lt_ITEMs).
 
