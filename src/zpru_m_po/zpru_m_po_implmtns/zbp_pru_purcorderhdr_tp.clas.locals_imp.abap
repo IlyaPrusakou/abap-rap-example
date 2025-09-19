@@ -962,6 +962,7 @@ CLASS lhc_OrderTP IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD checkSupplier.
+
     IF keys IS INITIAL.
       APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
       <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
@@ -1213,6 +1214,7 @@ CLASS lhc_OrderTP IMPLEMENTATION.
 
     ENDLOOP.
   ENDMETHOD.
+
 ENDCLASS.
 
 

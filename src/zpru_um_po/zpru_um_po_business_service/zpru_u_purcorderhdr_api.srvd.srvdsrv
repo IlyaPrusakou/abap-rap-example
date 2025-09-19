@@ -1,0 +1,6 @@
+@EndUserText.label: 'Unmanged Order Web API'
+define service ZPRU_U_PURCORDERHDR_API
+  provider contracts odata_v4_webapi, odata_v2_webapi {
+  expose ZPRU_U_PURCORDERHDR_PROJ  as purchaseOrder;
+  expose ZPRU_U_PURCORDERITEM_PROJ as purchaseItem;
+}
