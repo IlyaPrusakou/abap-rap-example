@@ -1,0 +1,16 @@
+extension for projection implementation in class zbp_pru_m_po_proj_ext unique;
+
+extend behavior for OrderProj
+{
+
+use action layer_1_b;
+use action layer_1_a;
+use action layer_2_a;
+
+action proj_ext;
+
+}
+
+extend behavior for ItemProj
+{
+}

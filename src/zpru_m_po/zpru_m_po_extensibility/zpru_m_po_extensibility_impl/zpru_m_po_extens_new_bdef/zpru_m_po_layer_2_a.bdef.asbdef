@@ -1,0 +1,8 @@
+extension using interface ZPRU_PURCORDERHDR_ODATA_INT
+implementation in class zbp_pru_m_po_layer_2_a unique;
+
+extend behavior for OrderInt {
+
+action (authorization:update ) layer_2_a;
+
+}

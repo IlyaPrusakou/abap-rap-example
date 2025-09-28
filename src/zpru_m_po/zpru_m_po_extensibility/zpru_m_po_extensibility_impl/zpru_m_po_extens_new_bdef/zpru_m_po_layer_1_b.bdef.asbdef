@@ -1,0 +1,8 @@
+extension using interface zpru_purcorderhdr_odata_int
+implementation in class zbp_pru_m_po_layer_1_b unique;
+
+extend behavior for OrderInt {
+
+action (authorization:none ) layer_1_b;
+
+}

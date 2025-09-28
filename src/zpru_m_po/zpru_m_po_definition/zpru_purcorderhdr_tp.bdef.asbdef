@@ -152,6 +152,8 @@ changedocuments dependent by _header_tp
   validation checkQuantity on save { create; update; }
   validation checkItemCurrency on save { create; }
 
+
+
   mapping for zpru_po_item corresponding extensible
     {
       itemId            = item_id;

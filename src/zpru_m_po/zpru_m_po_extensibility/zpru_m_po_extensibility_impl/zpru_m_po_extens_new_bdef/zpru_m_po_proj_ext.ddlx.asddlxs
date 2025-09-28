@@ -1,0 +1,12 @@
+@Metadata.layer: #CUSTOMER
+annotate entity Zpru_PurcOrderHdr_ODATA_Proj
+    with 
+{
+      @UI: {
+    lineItem:   [ {  type: #FOR_ACTION, dataAction: 'layer_1_a', label: 'layer_1_a' },
+                  {  type: #FOR_ACTION, dataAction: 'layer_1_b', label: 'layer_1_b' },
+                  {  type: #FOR_ACTION, dataAction: 'layer_2_a', label: 'layer_2_a' },
+                  {  type: #FOR_ACTION, dataAction: 'proj_ext', label: 'proj_ext' }  ] 
+  }
+    orderDate;  
+}

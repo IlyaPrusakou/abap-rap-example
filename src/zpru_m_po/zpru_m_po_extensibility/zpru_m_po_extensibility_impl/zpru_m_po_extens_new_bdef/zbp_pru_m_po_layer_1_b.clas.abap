@@ -1,0 +1,5 @@
+CLASS zbp_pru_m_po_layer_1_b DEFINITION PUBLIC ABSTRACT FINAL FOR BEHAVIOR OF zpru_purcorderhdr_tp.
+ENDCLASS.
+
+CLASS zbp_pru_m_po_layer_1_b IMPLEMENTATION.
+ENDCLASS.

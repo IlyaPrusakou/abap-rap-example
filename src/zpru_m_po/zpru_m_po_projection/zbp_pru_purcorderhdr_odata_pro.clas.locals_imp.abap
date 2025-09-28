@@ -240,7 +240,7 @@ CLASS lhc_OrderTP IMPLEMENTATION.
       LOOP AT entities_update ASSIGNING FIELD-SYMBOL(<ls_order_update>)
            WHERE %control-OrderDescription = if_abap_behv=>mk-on.
 
-        IF         line_exists( link_failed-ordertp[ KEY draft
+        IF         line_exists( link_failed-OrderTP[ KEY draft
                                                      %tky = CORRESPONDING #( <ls_order_update>-%tky ) ] )
            AND NOT line_exists( lt_ordertext_for_new_order[ KEY cid
                                                             %cid_ref  = <ls_order_update>-%cid_ref

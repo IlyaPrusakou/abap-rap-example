@@ -1633,6 +1633,8 @@ CLASS lhc_ItemTP IMPLEMENTATION.
            ENTITY ItemTP
            UPDATE FROM lt_item_update.
   ENDMETHOD.
+
+
 ENDCLASS.
 
 

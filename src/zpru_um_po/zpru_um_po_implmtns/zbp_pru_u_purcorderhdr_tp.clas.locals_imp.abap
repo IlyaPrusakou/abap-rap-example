@@ -941,6 +941,10 @@ CLASS lhc_ordertp IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD update.
+
+    DATA: lt_determinenames_d    TYPE lif_business_object=>tt_determinenames_d.
+    DATA    ls_late_reported    TYPE lif_business_object=>ts_reported_late.
+
     lcl_buffer=>prep_root_buffer( CORRESPONDING #( entities MAPPING purchaseorderid = purchaseorderid
                                                                     is_draft        = %is_draft ) ).
 
@@ -1008,6 +1012,14 @@ CLASS lhc_ordertp IMPLEMENTATION.
         <ls_up>-changed = abap_true.
         <ls_up>-deleted = abap_false.
 
+        " qqq it seems that for active instance we must calculate trigger and invoke determination on modify
+        " but for draft instance it works out of box
+        IF <ls_update>-%control-buyerid = if_abap_behv=>mk-on.
+          APPEND INITIAL LINE TO lt_determinenames_d ASSIGNING FIELD-SYMBOL(<ls_determinenames_d>).
+          <ls_determinenames_d>-purchaseorderid = <ls_up>-instance-purchaseorderid.
+          <ls_determinenames_d>-%is_draft       =  <ls_up>-is_draft.
+        ENDIF.
+
       ELSE.
 
         APPEND VALUE #( %tky        = <ls_update>-%tky
@@ -1024,6 +1036,21 @@ CLASS lhc_ordertp IMPLEMENTATION.
 
       ENDIF.
     ENDLOOP.
+
+    IF lt_determinenames_d IS NOT INITIAL.
+      NEW lcl_det_val_manager( )->determinenames_in(
+        EXPORTING
+          keys     = lt_determinenames_d
+        CHANGING
+          reported = ls_late_reported ).
+
+      LOOP AT ls_late_reported-ordertp ASSIGNING FIELD-SYMBOL(<ls_late_order>).
+        APPEND INITIAL LINE TO reported-ordertp ASSIGNING FIELD-SYMBOL(<ls_early_order>).
+        <ls_early_order> = CORRESPONDING #( <ls_late_order> ).
+      ENDLOOP.
+
+    ENDIF.
+
   ENDMETHOD.
 
   METHOD precheck_update.
