@@ -13,7 +13,7 @@ ABAP RAP Implementation Example
 5. Extension with new fields, new behavior and with new node of managed RAP business object;
 6. local event consumtion for events raised in managed and unmanaged RAP business objects.
 
-RAP application types:
+**RAP application types:**
 1. RAP Fiori UI with draft(managed and unmanaged);
 2. RAP Web API(managed and unmanaged);
 3. RAP Internal API(interface);
