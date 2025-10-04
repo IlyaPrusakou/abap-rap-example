@@ -1,0 +1,12 @@
+@EndUserText.label: 'Purchase Order Odata V4 UI'
+@AbapCatalog.extensibility.extensible: true
+define service ZPRU_READ_PURCORDERHDR_ODATA
+  provider contracts odata_v4_ui, odata_v2_ui {
+  expose ZPRU_RO_PURCORDERHDR_PROJ   as purchaseOrder;
+  expose ZPRU_RO_PURCORDERITEM_PROJ  as purchaseItem;
+  expose ZPRU_RO_PURCORDERHDR_T_PROJ as purchaseOrderText;
+  expose zpru_i_shipping_method      as shippingMethod;
+  expose zpru_i_shipping_method_t    as shippingMethodText;
+  expose ZPRU_I_BUYER                as buyer;
+  expose ZPRU_I_BUYER_T              as buyerText;
+}
