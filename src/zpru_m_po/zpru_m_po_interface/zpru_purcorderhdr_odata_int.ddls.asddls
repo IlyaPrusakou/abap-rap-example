@@ -32,6 +32,7 @@ define root view entity Zpru_PurcOrderHdr_ODATA_Int
       paymentTerms,
       shippingMethod,
       controlTimestamp,
+      origin,
       createdBy,
       createOn,
       changedBy,

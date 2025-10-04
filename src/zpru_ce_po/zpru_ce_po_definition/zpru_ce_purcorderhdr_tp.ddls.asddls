@@ -1,6 +1,6 @@
 @EndUserText.label: 'Purchase Order'
 
-@UI: { headerInfo: { typeNamePlural: 'List Report - Purchase Orders',
+@UI: { headerInfo: { typeNamePlural: 'List Report - Query Purchase Orders',
                      typeName: 'Purchase Order',
                      title: { value: 'purchaseOrderId' } } }
 

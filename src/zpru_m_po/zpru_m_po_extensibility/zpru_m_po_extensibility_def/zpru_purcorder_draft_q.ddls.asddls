@@ -29,6 +29,7 @@ define view entity ZPRU_PURCORDER_DRAFT_Q
       paymentterms                  as paymentterms,
       shippingmethod                as shippingmethod,
       controltimestamp              as controltimestamp,
+      origin                        as origin,
       createdby                     as createdby,
       createon                      as createon,
       changedby                     as changedby,

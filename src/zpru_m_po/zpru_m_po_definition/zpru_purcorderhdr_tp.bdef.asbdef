@@ -25,7 +25,7 @@ changedocuments master ( ZPRU_PURC_ORDER )
 
   field ( readonly : update ) purchaseOrderId, headerCurrency;
   field ( mandatory ) supplierId, deliveryDate, buyerId;
-  field ( readonly ) status, buyerName, supplierName, totalAmount;
+  field ( readonly ) status, buyerName, supplierName, totalAmount, origin;
   field ( features : instance ) paymentTerms;
 
   create ( precheck );
@@ -42,6 +42,7 @@ changedocuments master ( ZPRU_PURC_ORDER )
   {
     determination ( always ) calcTotalAmount;
     determination ( always ) setControlTimestamp;
+    determination ( always ) fillOrigin;
     determination ItemTP~findWarehouseLocation;
     validation ( always ) checkDates;
     validation ( always ) checkHeaderCurrency;
@@ -55,6 +56,7 @@ changedocuments master ( ZPRU_PURC_ORDER )
   {
     determination ( always ) calcTotalAmount;
     determination ( always ) setControlTimestamp;
+    determination ( always ) fillOrigin;
     determination ItemTP~findWarehouseLocation;
     validation ( always ) checkDates;
     validation ( always ) checkHeaderCurrency;
@@ -82,6 +84,7 @@ changedocuments master ( ZPRU_PURC_ORDER )
   determination determineNames on modify { field supplierId, buyerId; }
   determination setControlTimestamp on save { create; }
   determination calcTotalAmount on save { create; update; }
+  determination fillOrigin on save { create; }
 
   event orderCreated deep parameter Zpru_PurcOrderHdr_Abstract;
 
@@ -100,6 +103,7 @@ changedocuments master ( ZPRU_PURC_ORDER )
       paymentTerms     = payment_terms;
       shippingMethod   = shipping_method;
       controlTimestamp = control_timestamp;
+      origin           = origin;
       createdBy        = created_by;
       createOn         = create_on;
       changedBy        = changed_by;

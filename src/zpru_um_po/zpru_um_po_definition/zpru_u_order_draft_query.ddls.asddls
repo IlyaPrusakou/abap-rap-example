@@ -24,6 +24,7 @@ define view entity zpru_u_order_draft_query
       paymentterms                  as Paymentterms,
       shippingmethod                as Shippingmethod,
       controltimestamp              as Controltimestamp,
+      origin                        as Origin,
       createdby                     as Createdby,
       createon                      as Createon,
       changedby                     as Changedby,

@@ -24,6 +24,9 @@ define root view entity ZPRU_U_PURCORDERHDR_PROJ
                                                         element: 'shippingMethod'  }     }]
       shippingMethod,
       controlTimestamp,
+      origin,
+           @ObjectModel.virtualElementCalculatedBy: 'ABAP:ZPRU_CL_U_PO_VIRT_ELEM'
+  virtual BusinessObjectSource : abap.char( 30 ),      
       createdBy,
       createOn,
       changedBy,

@@ -40,6 +40,7 @@ define root view entity Zpru_PurcOrderHdr_tp
       paymentTerms,
       shippingMethod,
       controlTimestamp,
+      origin,
       @Semantics.user.createdBy: true
       createdBy,
       @Semantics.systemDateTime.createdAt: true

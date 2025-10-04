@@ -27,6 +27,7 @@ define view entity Zpru_PurcOrderHdr
       payment_terms     as paymentTerms,
       shipping_method   as shippingMethod,
       control_timestamp as controlTimestamp,
+      origin            as origin,
       created_by        as createdBy,
       create_on         as createOn,
       changed_by        as changedBy,

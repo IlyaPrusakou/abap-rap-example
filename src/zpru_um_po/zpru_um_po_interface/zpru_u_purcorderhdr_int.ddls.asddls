@@ -19,6 +19,7 @@ as projection on ZPRU_U_PURCORDERHDR_TP
     paymentTerms,
     shippingMethod,
     controlTimestamp,
+    origin,
     createdBy,
     createOn,
     changedBy,

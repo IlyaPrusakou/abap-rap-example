@@ -12,7 +12,7 @@ etag master lastChanged
 
   field ( readonly : update ) purchaseOrderId, headerCurrency;
   field ( mandatory ) supplierId, deliveryDate, buyerId;
-  field ( readonly ) status, buyerName, supplierName, totalAmount;
+  field ( readonly ) status, buyerName, supplierName, totalAmount, origin;
   field ( features : instance ) paymentTerms;
 
   create ( precheck );
@@ -28,6 +28,7 @@ etag master lastChanged
   {
     determination ( always ) calcTotalAmount;
     determination ( always ) setControlTimestamp;
+    determination ( always ) fillOrigin;
     determination ItemTP~findWarehouseLocation;
     determination ItemTP~writeItemNumber;
     validation ( always ) checkDates;
@@ -56,6 +57,7 @@ etag master lastChanged
   determination determineNames on modify { field supplierId, buyerId; }
   determination setControlTimestamp on save { create; }
   determination calcTotalAmount on save { create; update; }
+  determination fillOrigin on save { create; }
 
   event orderCreated deep parameter Zpru_PurcOrderHdr_Abstract;
 
@@ -74,6 +76,7 @@ etag master lastChanged
       paymentTerms     = payment_terms;
       shippingMethod   = shipping_method;
       controlTimestamp = control_timestamp;
+      origin           = origin;
       createdBy        = created_by;
       createOn         = create_on;
       changedBy        = changed_by;

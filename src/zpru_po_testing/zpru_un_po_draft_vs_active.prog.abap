@@ -24,6 +24,7 @@ START-OF-SELECTION.
   <ls_edit_input>-purchaseorderid = p_poid.
 
   " CREATE DRAFT PO IN DRAFT BUFFER
+  " DON'T ENTER TO UNMANAGED CREATE
   MODIFY ENTITIES OF zpru_u_purcorderhdr_int
          ENTITY orderint
          EXECUTE edit FROM lt_edit_input
@@ -35,6 +36,7 @@ START-OF-SELECTION.
 
   " READ PO FROM DRAFT BUFFER
   " DRAFT TABLES HAVEN'T HAD PO DATA YET
+  " DON'T ENTER INTO UNMANAGED READ
   READ ENTITIES OF zpru_u_purcorderhdr_int
        ENTITY orderint
        ALL FIELDS WITH VALUE #( FOR <ls_r1>
@@ -64,6 +66,7 @@ START-OF-SELECTION.
   <ls_read_active>-purchaseorderid = p_poid.
 
   " READ ACTIVE PO ROOT
+  " ENTER INTO UNAMANGED READ
   READ ENTITIES OF zpru_u_purcorderhdr_int
        ENTITY orderint
        ALL FIELDS WITH lt_read_active
@@ -74,6 +77,7 @@ START-OF-SELECTION.
   <ls_read_draft>-purchaseorderid = p_poid.
 
   " READ DRAFT PO ROOT
+  " DON'T ENTER IN UNMANAGED READ
   READ ENTITIES OF zpru_u_purcorderhdr_int
        ENTITY orderint
        ALL FIELDS WITH lt_read_draft
@@ -86,6 +90,7 @@ START-OF-SELECTION.
   <ls_update_active>-supplierid      = p_sup_ac.
   <ls_update_active>-%control-supplierid = if_abap_behv=>mk-on.
 
+  " ENTER INTO UNMANAGED UPDATE
   MODIFY ENTITIES OF zpru_u_purcorderhdr_int
          ENTITY orderint
          UPDATE FROM lt_update_active.
@@ -97,6 +102,7 @@ START-OF-SELECTION.
   <ls_update_draft>-supplierid      = p_sup_dr.
   <ls_update_draft>-%control-supplierid = if_abap_behv=>mk-on.
 
+  " DON'T ENTER INTO UNMANAGED UPDATE
   MODIFY ENTITIES OF zpru_u_purcorderhdr_int
          ENTITY orderint
          UPDATE FROM lt_update_draft.
@@ -117,6 +123,7 @@ START-OF-SELECTION.
   <ls_DISCARD_draft>-purchaseorderid = p_poid.
 
   " DISCARD DRAFT
+  " REGARDED AS DELETE ON DRAFT BUFFER
   MODIFY ENTITIES OF zpru_u_purcorderhdr_int
   ENTITY orderint
   EXECUTE discard FROM lt_discard_input
@@ -130,6 +137,8 @@ START-OF-SELECTION.
        RESULT DATA(lt_roots_active3).
 
   " READ DRAFT PO ROOT AFTER DISCARD
+  " DON'T RETURN BECAUSE OF DISCARDED
+  " BUT VALUE IS STILL IN DRAFT TABLE
   READ ENTITIES OF zpru_u_purcorderhdr_int
        ENTITY orderint
        ALL FIELDS WITH lt_read_draft

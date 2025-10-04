@@ -1,5 +1,5 @@
 @Metadata.layer: #CORE
-@UI: { headerInfo: { typeNamePlural: 'List Report - Purchase Orders',
+@UI: { headerInfo: { typeNamePlural: 'List Report - Unmanaged Purchase Orders',
                      typeName: 'Purchase Order',
                      title: { value: 'purchaseOrderId' } } }
                      
@@ -136,6 +136,17 @@ annotate entity ZPRU_U_PURCORDERHDR_PROJ
   shippingMethod;
   @Consumption.hidden: true
   controlTimestamp;
+  
+  @Consumption.hidden: true
+  origin;
+  
+  @UI: { lineItem:       [ { position: 121 } ],
+         identification: [ { position: 121 } ],
+         fieldGroup:     [ { qualifier: 'Fieldgroup2',
+                             position: 121 } ] }  
+  @EndUserText.label: 'Business Object Source'
+  BusinessObjectSource;  
+  
   @UI: { lineItem:       [ { position: 130 } ],
        identification: [ { position: 130 } ],
        fieldGroup:     [ { qualifier: 'Fieldgroup3',

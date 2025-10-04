@@ -3,9 +3,9 @@
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
    <VSEOCLASS>
-    <CLSNAME>ZPRU_CL_PO_VIRT_ELEM_EXIT</CLSNAME>
+    <CLSNAME>ZPRU_CL_M_PO_VIRT_ELEM</CLSNAME>
     <LANGU>E</LANGU>
-    <DESCRIPT>Calculate Virtual Elements for Order</DESCRIPT>
+    <DESCRIPT>Virtual Element Implementation for Order</DESCRIPT>
     <STATE>1</STATE>
     <CLSCCINCL>X</CLSCCINCL>
     <FIXPT>X</FIXPT>

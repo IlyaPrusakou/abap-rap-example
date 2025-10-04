@@ -26,6 +26,7 @@ define root view entity ZPRU_U_PURCORDERHDR_TP
       paymentTerms,
       shippingMethod,
       controlTimestamp,
+      origin,
       @Semantics.user.createdBy: true
       createdBy,
       @Semantics.systemDateTime.createdAt: true

@@ -128,6 +128,8 @@ CLASS lhc_OrderTP DEFINITION INHERITING FROM cl_abap_behavior_handler.
       IMPORTING keys FOR ordertp~calctotalamount.
     METHODS precheck_cba_text_tp FOR PRECHECK
       IMPORTING entities FOR CREATE ordertp\_text_tp.
+    METHODS fillorigin FOR DETERMINE ON SAVE
+      IMPORTING keys FOR ordertp~fillorigin.
 
 ENDCLASS.
 
@@ -1213,6 +1215,52 @@ CLASS lhc_OrderTP IMPLEMENTATION.
       ENDLOOP.
 
     ENDLOOP.
+  ENDMETHOD.
+
+  METHOD fillOrigin.
+
+  DATA lt_order_update TYPE lif_business_object=>tt_order_update.
+
+    IF keys IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '001'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    READ ENTITIES OF zpru_purcorderhdr_tp
+         IN LOCAL MODE
+         ENTITY OrderTP
+         ALL FIELDS WITH CORRESPONDING #( keys )
+         RESULT DATA(lt_roots).
+
+    IF lt_roots IS INITIAL.
+      APPEND INITIAL LINE TO reported-%other ASSIGNING <lo_reported>.
+      <lo_reported> = new_message( id       = zpru_if_m_po=>gc_po_message_class
+                                   number   = '002'
+                                   severity = if_abap_behv_message=>severity-error ).
+      RETURN.
+    ENDIF.
+
+    LOOP AT lt_roots ASSIGNING FIELD-SYMBOL(<ls_instance>).
+
+      APPEND INITIAL LINE TO lt_order_update ASSIGNING FIELD-SYMBOL(<ls_order_update>).
+      <ls_order_update>-%tky = <ls_instance>-%tky.
+      <ls_order_update>-%data-origin = `M`.
+      <ls_order_update>-%control-origin = if_abap_behv=>mk-on.
+
+    ENDLOOP.
+
+    IF lt_order_update IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    MODIFY ENTITIES OF Zpru_PurcOrderHdr_tp
+           IN LOCAL MODE
+           ENTITY OrderTP
+           UPDATE FROM lt_order_update.
+
   ENDMETHOD.
 
 ENDCLASS.
