@@ -1,0 +1,7 @@
+extension using interface zpru_purcorderhdr_odata_int;
+
+extend behavior for OrderInt {
+
+managed event derivedOrderCreate on orderCreated parameter ZPRU_ORDER_DERIVED_EVENT;
+
+}
