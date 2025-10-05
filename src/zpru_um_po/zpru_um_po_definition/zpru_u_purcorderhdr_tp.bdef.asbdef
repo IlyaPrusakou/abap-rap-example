@@ -28,7 +28,7 @@ etag master lastChanged
   {
     determination ( always ) calcTotalAmount;
     determination ( always ) setControlTimestamp;
-    determination ( always ) fillOrigin;
+    determination fillOrigin;
     determination ItemTP~findWarehouseLocation;
     determination ItemTP~writeItemNumber;
     validation ( always ) checkDates;

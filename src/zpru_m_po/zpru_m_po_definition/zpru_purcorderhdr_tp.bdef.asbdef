@@ -42,7 +42,7 @@ changedocuments master ( ZPRU_PURC_ORDER )
   {
     determination ( always ) calcTotalAmount;
     determination ( always ) setControlTimestamp;
-    determination ( always ) fillOrigin;
+    determination fillOrigin;
     determination ItemTP~findWarehouseLocation;
     validation ( always ) checkDates;
     validation ( always ) checkHeaderCurrency;

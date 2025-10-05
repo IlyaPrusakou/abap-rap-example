@@ -8,7 +8,7 @@ define behavior for Zpru_PurcOrderHdr_ODATA_Proj alias OrderProj
 use etag
 extensible
 {
-  field ( modify ) orderDescription; // augment operation for virtual element (opdatable virtual element)
+  field ( modify ) orderDescription; // augment operation for virtual element (updatable virtual element)
 
 
   use create ( augment, precheck ); // augment and precheck must be implemented ABP for projection
