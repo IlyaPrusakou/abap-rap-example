@@ -39,3 +39,41 @@ These restrictions are constant for all instances in the ABAP RESTful Applicatio
 | **SFC-03** | Field is **Read-Only during UPDATE** | `field (readonly:update)` | Field cannot be changed via the UI or external EML `UPDATE` after an instance is created (or initial value set in draft). | 
 | **SFC-04** | Field is **Mandatory on Create & Read-Only on Update** | `field (mandatory:create, readonly:update)` | Combines SFC-02 and SFC-03. Value must be set once during creation and can never be changed afterward (e.g., ID via external numbering). | 
 | **SFC-05** | Field is **Suppressed (Technical Field)** | `field (suppress)` | Removes the field from appearance in BDEF-generated components (derived types, EML fields). Requires `@Consumption.hidden: true` for OData removal. |
+
+II. Static Operation/Action Control (Behavior Definition - BDEF)
+These operations are either permanently available or disabled at the entity level.
+
+## Static Operation Control (SOC)
+
+These rules define the general CREATE, UPDATE, and DELETE (CUD) permissions for the entire entity.
+
+| ID | Scenario | BDEF Syntax | Technical Effect |
+| :---: | :--- | :--- | :--- |
+| **SOC-01** | `CREATE` is enabled for the entity (Default) | `create` | The consumer can create new instances of this entity. |
+| **SOC-02** | `UPDATE` is enabled for the entity (Default) | `update` | The consumer can modify existing instances of this entity. |
+| **SOC-03** | `DELETE` is enabled for the entity (Default) | `delete` | The consumer can delete existing instances of this entity. |
+| **SOC-04** | Action is **Always Available** | `action ActionName [...]` | The action button/operation is always available on the UI/API, regardless of instance state. |
+| **SOC-05** | **Internal Operation/Action** | `internal *operation*/ internal action ActionName` | The operation/action can only be triggered by business logic *inside* the BO implementation (validations, determinations, other actions), not by external consumers (UI/API). |
+| **SOC-06** | **Create-by-Association** is enabled | `_Association { create; }` | The consumer can create a child instance via the parent's association. |
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
