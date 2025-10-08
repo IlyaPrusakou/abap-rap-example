@@ -28,10 +28,14 @@ These scenarios are designed to be independent and combinable for more complex b
 I. Static Field Control (Behavior Definition - BDEF)
 These restrictions are constant for all instances.
 
+## Static Field Control (BDEF)
+
+These restrictions are constant for all instances in the ABAP RESTful Application Programming Model (RAP).
+
 | ID | Scenario | BDEF Property | Technical Effect | 
 | :---: | :--- | :--- | :--- | 
-| **SFC-01** | Always Read-Only (Nobody Can Touch This) | `field (read only)` | Nope, you **can't create or change** this field through the UI or code (EML/OData). Your BO will flat-out reject any attempts to change it! | 
-| **SFC-02** | Must Be Filled When Creating | `field (mandatory:create)` | You **must provide a value** when you first create an entry. If it's missing, the system throws a fit and won't let you save! | 
-| **SFC-03** | Read-Only *After* Creation | `field (read only:update)` | Once you've created the entry (or set the first value), that's it! You **can't change it later** through the UI or by coding an `UPDATE`. | 
-| **SFC-04** | Set It and Forget It (Mandatory First, Then Locked) | `field (mandatory:create, read only:update)` | This is a mix! You **must give it a value initially**, and then it's locked down forever. Perfect for things like an external ID that should never change! | 
-| **SFC-05** | Hidden Away (Purely Technical) | `field (suppress)` | Poof! It **vanishes** from all the generated stuff (like EML fields). Just remember to add the `@Consumption.hidden: true` annotation to your CDS view, or it might still sneak into your OData service! |
+| **SFC-01** | Field is **Read-Only (Always)** | `field (read only)` | Consumer cannot create or update the field via EML/OData. BO runtime rejects external EML `MODIFY` with this field. | 
+| **SFC-02** | Field is **Mandatory during CREATE** | `field (mandatory:create)` | System checks if the field is filled *before* persistence during a `CREATE`. `SAVE` is rejected if empty. | 
+| **SFC-03** | Field is **Read-Only during UPDATE** | `field (readonly:update)` | Field cannot be changed via the UI or external EML `UPDATE` after an instance is created (or initial value set in draft). | 
+| **SFC-04** | Field is **Mandatory on Create & Read-Only on Update** | `field (mandatory:create, readonly:update)` | Combines SFC-02 and SFC-03. Value must be set once during creation and can never be changed afterward (e.g., ID via external numbering). | 
+| **SFC-05** | Field is **Suppressed (Technical Field)** | `field (suppress)` | Removes the field from appearance in BDEF-generated components (derived types, EML fields). Requires `@Consumption.hidden: true` for OData removal. |
