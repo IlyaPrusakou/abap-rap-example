@@ -28,7 +28,7 @@ These scenarios are designed to be independent and combinable for more complex b
 I. Static Field Control (Behavior Definition - BDEF)
 These restrictions are constant for all instances.
 
-## Static Field Control (BDEF)
+## Static Field Control (SFC)
 
 These restrictions are constant for all instances in the ABAP RESTful Application Programming Model (RAP).
 
@@ -56,17 +56,44 @@ These rules define the general CREATE, UPDATE, and DELETE (CUD) permissions for 
 | **SOC-05** | **Internal Operation/Action** | `internal *operation*/ internal action ActionName` | The operation/action can only be triggered by business logic *inside* the BO implementation (validations, determinations, other actions), not by external consumers (UI/API). |
 | **SOC-06** | **Create-by-Association** is enabled | `_Association { create; }` | The consumer can create a child instance via the parent's association. |
 
+III. Dynamic Field Control (Instance Features)
+These restrictions depend on the instance's current data/state, implemented in the behavior pool's FOR INSTANCE FEATURES.
 
+## Dynamic Field Control (DFC)
 
+These rules allow you to change a field's read-only or mandatory status based on the data of the current instance.
 
+| ID | Scenario | BDEF Syntax | Implementation Status | Technical Effect |
+| :---: | :--- | :--- | :--- | :--- |
+| **DFC-01** | Field is **Dynamically Mandatory** | `field (features:instance)` | Set status to `MANDATORY` | Field becomes mandatory based on instance data/condition, requiring input before saving. |
+| **DFC-02** | Field is **Dynamically Read-Only** | `field (features:instance)` | Set status to `READONLY` | Field becomes read-only based on instance data/condition, preventing modification. |
+| **DFC-03** | Field is **Dynamically Unrestricted** | `field (features:instance)` | Set status to `UNRESTRICTED` | Field has no dynamic restrictions (e.g., overriding a global restriction for specific instances). |
 
+IV. Dynamic Operation/Action Control (Instance Features)
+These are enabled/disabled based on the instance's current data/state, implemented in the behavior pool's FOR INSTANCE FEATURES.
 
+## Dynamic Operation Control (DOC)
 
+These rules allow you to enable or disable CUD operations (UPDATE, DELETE) and custom actions based on the state of the current business object instance.
 
+| ID | Scenario | BDEF Syntax | Implementation Status | Technical Effect |
+| :---: | :--- | :--- | :--- | :--- |
+| **DOC-01** | **Standard Operation (UPDATE or DELETE) is Dynamically Disabled** | `update (features:instance)` or `delete (features:instance)` | Set status to `DISABLED` | The operation is disabled for the specific instance (e.g., cannot delete a "booked" instance). |
+| **DOC-02** | Action is **Dynamically Disabled** | `action ActionName (features:instance)` | Set status to `DISABLED` | The action button/operation is disabled/hidden on the UI for the specific instance (e.g., cannot book an already booked flight). |
+| **DOC-03** | Action is **Dynamically Enabled** | `action ActionName (features:instance)` | Set status to `ENABLED` | The action button/operation is enabled for the specific instance (used to control availability when the default is disabled). |
 
+V. Global Operation/Action Control (Global Features)
+These are enabled/disabled based on a condition independent of the BO instance state (e.g., system configuration, BAdI implementation, business scope), implemented in the behavior pool's FOR GLOBAL FEATURES.
 
+## Global Operation Control (GOC)
 
+These controls permanently disable CUD operations, actions, or associations for **all instances** of the entity, overriding any instance-specific settings.
 
+| ID | Scenario | BDEF Syntax | Implementation Status | Technical Effect |
+| :---: | :--- | :--- | :--- | :--- |
+| **GOC-01** | **Standard Operation (CREATE, UPDATE, or DELETE) is Globally Disabled** | `create (features:global)` or `update (features:global)` or `delete (features:global)` | Set status to `DISABLED` | The operation is disabled for **all** instances of the entity, regardless of instance state. |
+| **GOC-02** | Action is **Globally Disabled** | `action ActionName (features:global)` | Set status to `DISABLED` | The action button/operation is disabled/hidden on the UI for all instances (e.g., if a feature is switched off globally). |
+| **GOC-03** | **Create-by-Association is Globally Disabled** | `_Association { create(features:global); }` | Set status to `DISABLED` | Creation of child entities via the parent's association is disabled globally. |
 
 
 
