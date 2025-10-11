@@ -1,0 +1,173 @@
+@Metadata.layer: #CORE
+@UI: {
+  headerInfo: {
+    typeName: 'OrderUn', 
+    typeNamePlural: 'OrderUns'
+  }
+}
+annotate view ZC_PRU_UNUM_ORDER_PROJ with
+{
+  @UI.facet: [ {
+    id: 'idIdentification', 
+    type: #IDENTIFICATION_REFERENCE, 
+    label: 'OrderUn', 
+    position: 10 
+  } ]
+  @UI.lineItem: [ {
+    position: 10 , 
+    importance: #MEDIUM, 
+    label: ''
+  } ]
+  @UI.identification: [ {
+    position: 10 , 
+    label: ''
+  } ]
+  PurchaseOrderID;
+  
+  @UI.lineItem: [ {
+    position: 20 , 
+    importance: #MEDIUM, 
+    label: 'OrderDate'
+  } ]
+  @UI.identification: [ {
+    position: 20 , 
+    label: 'OrderDate'
+  } ]
+  OrderDate;
+  
+  @UI.lineItem: [ {
+    position: 30 , 
+    importance: #MEDIUM, 
+    label: ''
+  } ]
+  @UI.identification: [ {
+    position: 30 , 
+    label: ''
+  } ]
+  SupplierID;
+  
+  @UI.lineItem: [ {
+    position: 40 , 
+    importance: #MEDIUM, 
+    label: 'SupplierName'
+  } ]
+  @UI.identification: [ {
+    position: 40 , 
+    label: 'SupplierName'
+  } ]
+  SupplierName;
+  
+  @UI.lineItem: [ {
+    position: 50 , 
+    importance: #MEDIUM, 
+    label: ''
+  } ]
+  @UI.identification: [ {
+    position: 50 , 
+    label: ''
+  } ]
+  BuyerID;
+  
+  @UI.lineItem: [ {
+    position: 60 , 
+    importance: #MEDIUM, 
+    label: 'BuyerName'
+  } ]
+  @UI.identification: [ {
+    position: 60 , 
+    label: 'BuyerName'
+  } ]
+  BuyerName;
+  
+  @UI.lineItem: [ {
+    position: 70 , 
+    importance: #MEDIUM, 
+    label: 'TotalAmount'
+  } ]
+  @UI.identification: [ {
+    position: 70 , 
+    label: 'TotalAmount'
+  } ]
+  TotalAmount;
+  
+  @UI.lineItem: [ {
+    position: 80 , 
+    importance: #MEDIUM, 
+    label: 'HeaderCurrency'
+  } ]
+  @UI.identification: [ {
+    position: 80 , 
+    label: 'HeaderCurrency'
+  } ]
+  HeaderCurrency;
+  
+  @UI.lineItem: [ {
+    position: 90 , 
+    importance: #MEDIUM, 
+    label: 'DeliveryDate'
+  } ]
+  @UI.identification: [ {
+    position: 90 , 
+    label: 'DeliveryDate'
+  } ]
+  DeliveryDate;
+  
+  @UI.lineItem: [ {
+    position: 100 , 
+    importance: #MEDIUM, 
+    label: 'Status'
+  } ]
+  @UI.identification: [ {
+    position: 100 , 
+    label: 'Status'
+  } ]
+  Status;
+  
+  @UI.lineItem: [ {
+    position: 110 , 
+    importance: #MEDIUM, 
+    label: ''
+  } ]
+  @UI.identification: [ {
+    position: 110 , 
+    label: ''
+  } ]
+  PaymentTerms;
+  
+  @UI.lineItem: [ {
+    position: 120 , 
+    importance: #MEDIUM, 
+    label: ''
+  } ]
+  @UI.identification: [ {
+    position: 120 , 
+    label: ''
+  } ]
+  ShippingMethod;
+  
+  @UI.lineItem: [ {
+    position: 130 , 
+    importance: #MEDIUM, 
+    label: ''
+  } ]
+  @UI.identification: [ {
+    position: 130 , 
+    label: ''
+  } ]
+  ControlTimestamp;
+  
+  @UI.lineItem: [ {
+    position: 140 , 
+    importance: #MEDIUM, 
+    label: 'Origin'
+  } ]
+  @UI.identification: [ {
+    position: 140 , 
+    label: 'Origin'
+  } ]
+  Origin;
+  
+  @UI.hidden: true
+  ChangedOn;
+  
+}

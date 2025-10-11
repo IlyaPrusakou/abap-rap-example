@@ -1,0 +1,121 @@
+managed implementation in class ZBP_PRU_UNUM_ORDER_TP unique ;
+strict ( 2 );
+
+define behavior for ZR_PRU_UNUM_ORDER_TP alias OrderUn
+with unmanaged save
+etag master ChangedOn
+lock master
+authorization master( global )
+early numbering
+
+{
+  field ( mandatory : create )
+   PurchaseOrderID;
+
+  field ( readonly )
+   CreateOn,
+   CreatedBy,
+   LastChanged,
+   ChangedOn,
+   ChangedBy;
+
+  field ( readonly : update )
+   PurchaseOrderID;
+
+  create;
+  update;
+  delete;
+
+association _itemsUn { create; }
+association _textUn { create; }
+
+  mapping for ZPRU_PURC_ORDER
+  {
+    PurchaseOrderID = purchase_order_id;
+    OrderDate = order_date;
+    SupplierID = supplier_id;
+    SupplierName = supplier_name;
+    BuyerID = buyer_id;
+    BuyerName = buyer_name;
+    TotalAmount = total_amount;
+    HeaderCurrency = header_currency;
+    DeliveryDate = delivery_date;
+    Status = status;
+    PaymentTerms = payment_terms;
+    ShippingMethod = shipping_method;
+    ControlTimestamp = control_timestamp;
+    Origin = origin;
+    CreatedBy = created_by;
+    CreateOn = create_on;
+    ChangedBy = changed_by;
+    ChangedOn = changed_on;
+    LastChanged = last_changed;
+  }
+}
+
+define behavior for ZR_PRU_UNUM_ITEM_TP alias ItemUn
+persistent table zpru_po_item
+lock dependent by _OrderUn
+authorization dependent by _OrderUn
+early numbering
+//etag dependent by _OrderUn
+{
+
+  field ( readonly ) totalPrice, warehouseLocation, itemNumber;
+  field ( readonly : update ) purchaseOrderId, itemId, productId, itemCurrency, unitPrice;
+  field ( mandatory : create ) productId, quantity, unitPrice;
+  update;
+  delete;
+
+  association _OrderUn {}
+
+  action markAsUrgent;
+  function getInventoryStatus result [1] Zpru_D_InventoryStatus;
+
+  determination calculateTotalPrice on modify { field quantity, unitPrice; }
+  determination findWarehouseLocation on save { create; field productId; }
+  determination writeItemNumber on save { create; }
+  validation checkQuantity on save { create; update; }
+  validation checkItemCurrency on save { create; }
+
+  mapping for zpru_po_item corresponding
+    {
+      itemId            = item_id;
+      purchaseOrderId   = purchase_order_id;
+      itemNumber        = item_number;
+      productId         = product_id;
+      productName       = product_name;
+      quantity          = quantity;
+      unitPrice         = unit_price;
+      totalPrice        = total_price;
+      deliveryDate      = delivery_date;
+      warehouseLocation = warehouse_location;
+      itemCurrency      = item_currency;
+      createdBy         = created_by;
+      createOn          = create_on;
+      changedBy         = changed_by;
+      changedOn         = changed_on;
+    }
+
+}
+
+define behavior for ZR_PRU_UNUM_TEXT_TP alias TextUn
+with unmanaged save
+lock dependent by _OrderUn
+authorization dependent by _OrderUn
+early numbering
+//etag dependent by _OrderUn
+{
+
+  update;
+  delete;
+  association _OrderUn { }
+  field ( readonly : update ) purchaseOrderId, Language;
+
+  mapping for zpru_purc_ordert corresponding
+    {
+      PurchaseOrderId = purchase_order_id;
+      Language        = language;
+      TextContent     = text_content;
+    }
+}

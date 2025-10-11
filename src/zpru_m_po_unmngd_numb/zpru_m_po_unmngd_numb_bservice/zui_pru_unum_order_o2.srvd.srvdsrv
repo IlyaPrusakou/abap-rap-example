@@ -1,0 +1,4 @@
+@EndUserText.label: 'Service definition for ZC_PRU_UNUM_ORDER_PROJ'
+define service ZUI_PRU_UNUM_ORDER_O2 {
+  expose ZC_PRU_UNUM_ORDER_PROJ as OrderUn;
+}
