@@ -500,7 +500,7 @@ CLASS lcl_det_val_manager IMPLEMENTATION.
 
       APPEND INITIAL LINE TO lt_order_update ASSIGNING FIELD-SYMBOL(<ls_order_update>).
       <ls_order_update>-%tky = <ls_instance>-%tky.
-      <ls_order_update>-%data-origin = `U`.
+      <ls_order_update>-%data-origin = zpru_if_m_po=>cs_origin-unamanged.
       <ls_order_update>-%control-origin = if_abap_behv=>mk-on.
 
     ENDLOOP.

@@ -46,11 +46,11 @@ INTERFACE zpru_if_m_po
              END OF cs_whs_location.
 
   CONSTANTS: BEGIN OF cs_buyer,
-               buy1 TYPE ZPRU_DE_BUYER VALUE 'BUY1',
-               buy2 TYPE ZPRU_DE_BUYER VALUE 'BUY2',
-               buy3 TYPE ZPRU_DE_BUYER VALUE 'BUY3',
-               buy4 TYPE ZPRU_DE_BUYER VALUE 'BUY4',
-               buy5 TYPE ZPRU_DE_BUYER VALUE 'BUY5',
+               buy1 TYPE zpru_de_buyer VALUE 'BUY1',
+               buy2 TYPE zpru_de_buyer VALUE 'BUY2',
+               buy3 TYPE zpru_de_buyer VALUE 'BUY3',
+               buy4 TYPE zpru_de_buyer VALUE 'BUY4',
+               buy5 TYPE zpru_de_buyer VALUE 'BUY5',
              END OF cs_buyer.
 
   CONSTANTS: BEGIN OF cs_buyer_names,
@@ -61,26 +61,32 @@ INTERFACE zpru_if_m_po
                buy5 TYPE char50 VALUE 'BUY5 NAME',
              END OF cs_buyer_names.
 
-  CONSTANTS: BEGIN OF cs_SUPPLIER_names,
+  CONSTANTS: BEGIN OF cs_supplier_names,
                sup1        TYPE char50 VALUE 'SUP1 NAME',
                sup2        TYPE char50 VALUE 'SUP2 NAME',
                sup3        TYPE char50 VALUE 'SUP3 NAME',
                sup4        TYPE char50 VALUE 'SUP4 NAME',
                banned_sup5 TYPE char50 VALUE 'BANSUP5 NAME',
                banned_sup6 TYPE char50 VALUE 'BANSUP6 NAME',
-             END OF cs_SUPPLIER_names.
+             END OF cs_supplier_names.
 
   CONSTANTS: BEGIN OF cs_payment_methods,
-               advance TYPE ZPRU_DE_PAYMENT_METHOD VALUE 'A',
-               post    TYPE ZPRU_DE_PAYMENT_METHOD VALUE 'P',
+               advance TYPE zpru_de_payment_method VALUE 'A',
+               post    TYPE zpru_de_payment_method VALUE 'P',
              END OF cs_payment_methods.
+
+  CONSTANTS: BEGIN OF cs_origin,
+               managed         TYPE char1 VALUE `M`,
+               unamanged       TYPE char1 VALUE `U`,
+               early_numbering TYPE char1 VALUE `E`,
+             END OF cs_origin.
 
   TYPES ts_getstatushistory_key   TYPE STRUCTURE FOR FUNCTION IMPORT zpru_purcorderhdr_tp\\ordertp~getstatushistory.
   TYPES ts_getstatushistory_res   TYPE STRUCTURE FOR FUNCTION RESULT zpru_purcorderhdr_tp\\ordertp~getstatushistory.
   TYPES ts_order_read_res         TYPE STRUCTURE FOR READ RESULT zpru_purcorderhdr_tp\\ordertp.
   TYPES ts_approved_suppliers     TYPE zpru_d_approvedsupplier.
   TYPES tt_createfromtemplate_key TYPE TABLE FOR ACTION IMPORT zpru_purcorderhdr_tp\\ordertp~createfromtemplate.
-  TYPES tt_abstract_root_bo       TYPE TABLE FOR HIERARCHY Zpru_PurcOrderHdr_Abstract\\orderAbstract.
-  TYPES ts_abstract_root_bo       TYPE STRUCTURE FOR HIERARCHY Zpru_PurcOrderHdr_Abstract\\orderAbstract.
+  TYPES tt_abstract_root_bo       TYPE TABLE FOR HIERARCHY zpru_purcorderhdr_abstract\\orderabstract.
+  TYPES ts_abstract_root_bo       TYPE STRUCTURE FOR HIERARCHY zpru_purcorderhdr_abstract\\orderabstract.
 
 ENDINTERFACE.

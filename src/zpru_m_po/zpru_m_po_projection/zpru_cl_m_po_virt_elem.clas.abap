@@ -35,10 +35,12 @@ CLASS zpru_cl_m_po_virt_elem IMPLEMENTATION.
         ENDIF.
 
         CASE <lv_original_field_value>.
-          WHEN `M`.
+          WHEN zpru_if_m_po=>cs_origin-managed.
             <lv_virtual_field_value> = `MANAGED`.
-          WHEN `U`.
+          WHEN zpru_if_m_po=>cs_origin-unamanged.
             <lv_virtual_field_value> = `UNMANAGED`.
+          WHEN zpru_if_m_po=>cs_origin-early_numbering.
+            <lv_virtual_field_value> = 'EARLY_NUMB'.
           WHEN OTHERS.
             <lv_virtual_field_value> = `UNDEFINED`.
         ENDCASE.

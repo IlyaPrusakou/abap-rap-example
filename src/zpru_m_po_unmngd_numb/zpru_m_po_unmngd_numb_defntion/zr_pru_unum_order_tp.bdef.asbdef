@@ -1,56 +1,69 @@
-managed implementation in class ZBP_PRU_UNUM_ORDER_TP unique ;
+managed implementation in class ZBP_PRU_UNUM_ORDER_TP unique;
 strict ( 2 );
 
 define behavior for ZR_PRU_UNUM_ORDER_TP alias OrderUn
 with unmanaged save
 etag master ChangedOn
 lock master
-authorization master( global )
+authorization master ( global )
 early numbering
 
 {
   field ( mandatory : create )
-   PurchaseOrderID;
+  PurchaseOrderID;
 
   field ( readonly )
-   CreateOn,
-   CreatedBy,
-   LastChanged,
-   ChangedOn,
-   ChangedBy;
+  CreateOn,
+  CreatedBy,
+  LastChanged,
+  ChangedOn,
+  ChangedBy;
 
   field ( readonly : update )
-   PurchaseOrderID;
+  PurchaseOrderID;
 
   create;
   update;
   delete;
 
-association _itemsUn { create; }
-association _textUn { create; }
+  association _itemsUn { create; }
+  association _textUn { create; }
 
-  mapping for ZPRU_PURC_ORDER
-  {
-    PurchaseOrderID = purchase_order_id;
-    OrderDate = order_date;
-    SupplierID = supplier_id;
-    SupplierName = supplier_name;
-    BuyerID = buyer_id;
-    BuyerName = buyer_name;
-    TotalAmount = total_amount;
-    HeaderCurrency = header_currency;
-    DeliveryDate = delivery_date;
-    Status = status;
-    PaymentTerms = payment_terms;
-    ShippingMethod = shipping_method;
-    ControlTimestamp = control_timestamp;
-    Origin = origin;
-    CreatedBy = created_by;
-    CreateOn = create_on;
-    ChangedBy = changed_by;
-    ChangedOn = changed_on;
-    LastChanged = last_changed;
-  }
+  validation checkDates on save { create; field orderDate, deliveryDate; }
+  validation checkHeaderCurrency on save { create; }
+  validation checkSupplier on save { create; update; }
+  validation checkBuyer on save { create; update; }
+  determination recalculateShippingMethod on modify { field supplierId; }
+  determination determineNames on modify { field supplierId, buyerId; }
+  determination setControlTimestamp on save { create; }
+  determination calcTotalAmount on save { create; update; }
+  determination fillOrigin on save { create; }
+
+  event orderCreated deep parameter Zpru_PurcOrderHdr_Abstract;
+
+
+  mapping for zpru_purc_order
+    {
+      PurchaseOrderID  = purchase_order_id;
+      OrderDate        = order_date;
+      SupplierID       = supplier_id;
+      SupplierName     = supplier_name;
+      BuyerID          = buyer_id;
+      BuyerName        = buyer_name;
+      TotalAmount      = total_amount;
+      HeaderCurrency   = header_currency;
+      DeliveryDate     = delivery_date;
+      Status           = status;
+      PaymentTerms     = payment_terms;
+      ShippingMethod   = shipping_method;
+      ControlTimestamp = control_timestamp;
+      Origin           = origin;
+      CreatedBy        = created_by;
+      CreateOn         = create_on;
+      ChangedBy        = changed_by;
+      ChangedOn        = changed_on;
+      LastChanged      = last_changed;
+    }
 }
 
 define behavior for ZR_PRU_UNUM_ITEM_TP alias ItemUn
@@ -67,7 +80,7 @@ early numbering
   update;
   delete;
 
-  association _OrderUn {}
+  association _OrderUn { }
 
   action markAsUrgent;
   function getInventoryStatus result [1] Zpru_D_InventoryStatus;
@@ -103,7 +116,6 @@ define behavior for ZR_PRU_UNUM_TEXT_TP alias TextUn
 with unmanaged save
 lock dependent by _OrderUn
 authorization dependent by _OrderUn
-early numbering
 //etag dependent by _OrderUn
 {
 

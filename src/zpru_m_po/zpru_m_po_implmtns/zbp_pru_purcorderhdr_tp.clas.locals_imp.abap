@@ -1247,7 +1247,7 @@ CLASS lhc_OrderTP IMPLEMENTATION.
 
       APPEND INITIAL LINE TO lt_order_update ASSIGNING FIELD-SYMBOL(<ls_order_update>).
       <ls_order_update>-%tky = <ls_instance>-%tky.
-      <ls_order_update>-%data-origin = `M`.
+      <ls_order_update>-%data-origin = zpru_if_m_po=>cs_origin-managed.
       <ls_order_update>-%control-origin = if_abap_behv=>mk-on.
 
     ENDLOOP.
