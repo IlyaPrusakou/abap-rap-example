@@ -1,12 +1,53 @@
 projection;
 strict ( 2 );
 
-define behavior for ZC_PRU_UNUM_ORDER_PROJ alias OrderUn
-use etag
+define behavior for ZC_PRU_UNUM_ORDER_PROJ alias OrderUnProj
+implementation in class ZBPC_PRU_UNUM_ORDER_PROJ unique
+//use etag
 
 {
-  use create;
+  // field ( modify ) orderDescription; // augment operation for virtual element (updatable virtual element)
+
+
+  use create ( augment, precheck ); // augment and precheck must be implemented ABP for projection
+  use update ( augment );
+  use delete;
+
+  use association _itemsUn { create ( augment, precheck ); } // augment and precheck must be implemented on ABP projection
+  use association _textUn { create; }
+
+  //  use action checkOrder;
+  //  use action sendOrderStatisticToAzure;
+  //  use action ( precheck ) ChangeStatus deep parameter Zpru_D_New_Status_Redefine1; // redefined parameter; // precheck must be implemented on ABP projection
+  //  use action createFromTemplate;
+  //  use function getMajorSupplier;
+  action sendToIDOC parameter ZPRU_D_IDOC_ADRESS;
+
+  //  use function getAllItems result entity ZPRU_PURCORDERITEM_ODATA_PROJ; // projected result
+
+  //  static function calculateOpenOrderValue parameter Zpru_D_SupplierID result [0..1] Zpru_D_OpenOrderTotalValue;
+
+
+}
+
+define behavior for ZC_PRU_UNUM_ITEM_PROJ alias ItemUnProj
+implementation in class ZBPC_PRU_UNUM_ITEM_PROJ unique
+{
   use update;
   use delete;
 
+  use association _OrderUn;
+
+  use action ( precheck ) markAsUrgent;
+  use function getInventoryStatus;
+
+}
+
+define behavior for ZC_PRU_UNUM_TEXT_PROJ alias TextUnProj
+implementation in class ZBPC_PRU_UNUM_TEXT_PROJ unique
+
+{
+  use update ( precheck, augment );
+  use delete ( precheck );
+  use  association _OrderUn;
 }

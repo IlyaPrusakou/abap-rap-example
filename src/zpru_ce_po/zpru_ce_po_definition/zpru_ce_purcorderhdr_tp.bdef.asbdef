@@ -1,0 +1,31 @@
+unmanaged implementation in class zbp_pru_ce_purcorderhdr_tp unique;
+strict ( 2 );
+
+define behavior for ZPRU_CE_PURCORDERHDR_TP //alias <alias_name>
+//late numbering
+lock master
+authorization master ( global, instance )
+//etag master <field_name>
+{
+//  create;
+//  update;
+//  delete;
+  association _items_tp { create; }
+  field ( suppress ) controltimestamp, lastchanged;
+
+  action Summary;
+
+}
+
+define behavior for ZPRU_CE_PURCORDER_ITEM_TP //alias <alias_name>
+//late numbering
+lock dependent by _header_tp
+authorization dependent by _header_tp
+//etag master <field_name>
+{
+  update;
+  delete;
+  field ( readonly ) purchaseOrderId;
+  association _header_tp;
+  field ( suppress ) isurgent;
+}

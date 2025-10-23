@@ -41,6 +41,16 @@ early numbering
 
   event orderCreated deep parameter Zpru_PurcOrderHdr_Abstract;
 
+    internal action revalidatePricingRules result [0..1] Zpru_D_Total_Amount;
+    static action sendOrderStatisticToAzure parameter Zpru_D_Azure_Location;
+    action ( precheck ) ChangeStatus deep parameter Zpru_D_New_Status;
+    factory action createFromTemplate parameter Zpru_D_Order_Template [1];
+
+  internal function isSupplierBlacklisted result [0..1] Zpru_D_SupplierInBlackList;
+  static function getMajorSupplier result [0..*] Zpru_D_ApprovedSupplier;
+  function getStatusHistory deep result [0..*] ZPRU_D_HistoryRoot;
+  function getAllItems result selective [0..*] entity Zpru_PurcOrderItem_tp; //QQQ CHECK DUPLICATE ENTRIES
+
 
   mapping for zpru_purc_order
     {
@@ -123,6 +133,13 @@ authorization dependent by _OrderUn
   delete;
   association _OrderUn { }
   field ( readonly : update ) purchaseOrderId, Language;
+
+  group ACTION_GROUP implementation in class ZBPR_PRU_UNUM_TEXT_GRP1 unique
+  { action ( precheck ) ChangeText; }
+
+  group FUNCTION_GROUP implementation in class ZBPR_PRU_UNUM_TEXT_GRP2 unique
+  { function getText result [0..*] $self; }
+
 
   mapping for zpru_purc_ordert corresponding
     {

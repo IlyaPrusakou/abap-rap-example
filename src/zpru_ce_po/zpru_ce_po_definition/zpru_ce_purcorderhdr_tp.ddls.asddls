@@ -57,7 +57,8 @@ define root custom entity ZPRU_CE_PURCORDERHDR_TP
       // Facets end
 
       @UI.selectionField:[ { position: 10 } ]
-      @UI              : { lineItem:       [ { position: 10 } ],
+      @UI              : { lineItem:       [ { position: 10 },
+                          { type: #FOR_ACTION, dataAction: 'Summary', label: 'Summary' } ],
              identification: [ { position: 10 } ],
              fieldGroup:     [ { qualifier: 'Fieldgroup1',
                                  position: 10 } ] }
