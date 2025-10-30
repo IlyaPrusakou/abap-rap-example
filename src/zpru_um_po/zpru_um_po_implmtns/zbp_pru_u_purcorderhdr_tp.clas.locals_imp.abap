@@ -14,7 +14,7 @@ INTERFACE lif_business_object.
                END OF item,
              END OF cs_state_area.
   TYPES tt_setcontroltimestamp_d       TYPE TABLE FOR DETERMINATION zpru_u_purcorderhdr_tp\\ordertp~setcontroltimestamp.
-  TYPES tt_fillorigin_d                TYPE TABLE FOR DETERMINATION zpru_u_purcorderhdr_tp\\ordertp~fillOrigin.
+  TYPES tt_fillorigin_d                TYPE TABLE FOR DETERMINATION zpru_u_purcorderhdr_tp\\ordertp~fillorigin.
   TYPES tt_calctotalamount_d           TYPE TABLE FOR DETERMINATION zpru_u_purcorderhdr_tp\\ordertp~calctotalamount.
   TYPES tt_checkdates_v                TYPE TABLE FOR VALIDATION zpru_u_purcorderhdr_tp\\ordertp~checkdates.
   TYPES tt_checkheadercurrency_v       TYPE TABLE FOR VALIDATION zpru_u_purcorderhdr_tp\\ordertp~checkheadercurrency.
@@ -97,6 +97,7 @@ CLASS lcl_buffer IMPLEMENTATION.
   METHOD prep_root_buffer.
     DATA ls_line TYPE zpru_u_purcorderhdr_tp. " qqq use your Transactional CDS
 
+    " read draft buffer, bcz it's managed
     READ ENTITIES OF zpru_u_purcorderhdr_tp " qqq use your base BDEF
          ENTITY ordertp
          ALL FIELDS WITH VALUE #( FOR <ls_drf>
@@ -110,13 +111,16 @@ CLASS lcl_buffer IMPLEMENTATION.
 
       IF line_exists( lcl_buffer=>root_buffer[ instance-purchaseorderid = <ls_buffer>-purchaseorderid
                                                is_draft                 = <ls_buffer>-is_draft ] ).
-        " do nothing
+        " do nothing, because already exist in buffer
       ELSE.
+        " depending on draft flag - get data from draft buffered values or from CDS
         IF <ls_buffer>-is_draft = if_abap_behv=>mk-on.
+          " check existence in draft buffer
           SELECT SINGLE @abap_true FROM @lt_draft_buffer AS draft_buffer
             WHERE purchaseorderid = @<ls_buffer>-purchaseorderid
             INTO @DATA(lv_exists_d).
           IF lv_exists_d = abap_true.
+            " get data from draft buffer
             SELECT SINGLE * FROM @lt_draft_buffer AS draft_buffer
               WHERE purchaseorderid = @<ls_buffer>-purchaseorderid
               INTO CORRESPONDING FIELDS OF @ls_line.
@@ -126,10 +130,12 @@ CLASS lcl_buffer IMPLEMENTATION.
             ENDIF.
           ENDIF.
         ELSE.
+          " check data in CDS, but it can BAPI, HTTP API, Legacy API or combination of last
           SELECT SINGLE @abap_true FROM zpru_purcorderhdr  " use your base CDS or Transactional CDS
             WHERE purchaseorderid = @<ls_buffer>-purchaseorderid
             INTO @DATA(lv_exists).
           IF lv_exists = abap_true.
+            " get data from active source
             SELECT SINGLE * FROM zpru_purcorderhdr " use your base CDS or Transactional CDS
               WHERE purchaseorderid = @<ls_buffer>-purchaseorderid
               INTO CORRESPONDING FIELDS OF @ls_line.
@@ -147,6 +153,7 @@ CLASS lcl_buffer IMPLEMENTATION.
     DATA lt_ch_tab  TYPE TABLE OF zpru_u_purcorderitem_tp WITH EMPTY KEY. " qqq use your Transactional CDS
     DATA ls_line_ch TYPE zpru_u_purcorderitem_tp. " qqq use your Transactional CDS
 
+    " preliminary read from draft buffer
     READ ENTITIES OF zpru_u_purcorderhdr_tp " qqq use your base bdef
          ENTITY ordertp BY \_items_tp
          ALL FIELDS WITH VALUE #( FOR <ls_drf>
@@ -158,12 +165,17 @@ CLASS lcl_buffer IMPLEMENTATION.
 
     LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_buffer_ch>).
 
+
+      " full key means that we fetch items directly
+      " otherwise it means that we work via association
       IF <ls_buffer_ch>-full_key = abap_true.
+        " check buffer
         IF line_exists( lcl_buffer=>child_buffer[ instance-purchaseorderid = <ls_buffer_ch>-purchaseorderid
                                                   instance-itemid          = <ls_buffer_ch>-itemid
                                                   is_draft                 = <ls_buffer_ch>-is_draft ] ).
           " do nothing
         ELSE.
+          " process draft source
           IF <ls_buffer_ch>-is_draft = if_abap_behv=>mk-on.
             SELECT SINGLE @abap_true FROM @lt_draft_buffer AS draft_buffer
               WHERE purchaseorderid = @<ls_buffer_ch>-purchaseorderid
@@ -182,6 +194,7 @@ CLASS lcl_buffer IMPLEMENTATION.
               ENDIF.
             ENDIF.
           ELSE.
+            " process active source
             SELECT SINGLE @abap_true FROM zpru_purcorderitem  " qqq use your base CDS or Transactional CDS
               WHERE purchaseorderid = @<ls_buffer_ch>-purchaseorderid
                 AND itemid          = @<ls_buffer_ch>-itemid
@@ -201,12 +214,15 @@ CLASS lcl_buffer IMPLEMENTATION.
         ENDIF.
 
       ELSE.
+        " so we try to read items via association --> we have purchase order id
+        " also we ignore those entries in buffer which is marked as deleted
         IF     line_exists( lcl_buffer=>root_buffer[ instance-purchaseorderid = <ls_buffer_ch>-purchaseorderid
                                                      is_draft                 = <ls_buffer_ch>-is_draft ] )
            AND VALUE #( lcl_buffer=>root_buffer[ instance-purchaseorderid = <ls_buffer_ch>-purchaseorderid
                                                  is_draft                 = <ls_buffer_ch>-is_draft ]-deleted OPTIONAL ) IS NOT INITIAL.
           " do nothing
         ELSE.
+          " draft source
           IF <ls_buffer_ch>-is_draft = if_abap_behv=>mk-on.
             SELECT SINGLE @abap_true FROM @lt_draft_buffer AS draft_buffer
               WHERE purchaseorderid = @<ls_buffer_ch>-purchaseorderid
@@ -227,7 +243,7 @@ CLASS lcl_buffer IMPLEMENTATION.
               ENDIF.
             ENDIF.
           ELSE.
-
+            " active source
             SELECT SINGLE @abap_true FROM zpru_purcorderitem " qqq use your base or Transactional CDS
               WHERE purchaseorderid = @<ls_buffer_ch>-purchaseorderid
               INTO @DATA(lv_exists_ch).
@@ -328,6 +344,10 @@ CLASS lcl_det_val_manager IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD writeitemnumber_in.
+    " this determination as well as validation method is internal and will be invoked in both
+    " in generated method for determination and in method finalize
+    " the rules are applying correspondingly to validation and method check_before_save
+
     DATA lt_item_update    TYPE TABLE FOR UPDATE zpru_u_purcorderhdr_tp\\itemtp.
     DATA lt_existing_items TYPE TABLE FOR READ RESULT zpru_u_purcorderhdr_tp\\itemtp.
 
@@ -339,6 +359,7 @@ CLASS lcl_det_val_manager IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    " we will get into our unmanaged implementation
     READ ENTITIES OF zpru_u_purcorderhdr_tp
          IN LOCAL MODE
          ENTITY itemtp
@@ -354,6 +375,7 @@ CLASS lcl_det_val_manager IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    " we will get into our unmanaged implementation
     READ ENTITIES OF zpru_u_purcorderhdr_tp
          IN LOCAL MODE
          ENTITY itemtp BY \_header_tp
@@ -364,6 +386,7 @@ CLASS lcl_det_val_manager IMPLEMENTATION.
                          %tky-itemid          = <ls_i>-itemid  ) )
          LINK DATA(lt_item_to_order).
 
+    " we will get into our unmanaged implementation
     READ ENTITIES OF zpru_u_purcorderhdr_tp
          IN LOCAL MODE
          ENTITY ordertp BY \_items_tp
@@ -404,6 +427,7 @@ CLASS lcl_det_val_manager IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    " we will get into our unmanaged implementation
     MODIFY ENTITIES OF zpru_u_purcorderhdr_tp
            IN LOCAL MODE
            ENTITY itemtp
@@ -472,7 +496,7 @@ CLASS lcl_det_val_manager IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD fillorigin_in.
-    DATA lt_order_update TYPE TABLE FOR UPDATE zpru_u_purcorderhdr_tp\\OrderTP.
+    DATA lt_order_update TYPE TABLE FOR UPDATE zpru_u_purcorderhdr_tp\\ordertp.
 
     IF keys IS INITIAL.
       APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
@@ -484,7 +508,7 @@ CLASS lcl_det_val_manager IMPLEMENTATION.
 
     READ ENTITIES OF zpru_u_purcorderhdr_tp
          IN LOCAL MODE
-         ENTITY OrderTP
+         ENTITY ordertp
          ALL FIELDS WITH CORRESPONDING #( keys )
          RESULT DATA(lt_roots).
 
@@ -511,13 +535,13 @@ CLASS lcl_det_val_manager IMPLEMENTATION.
 
     MODIFY ENTITIES OF zpru_u_purcorderhdr_tp
            IN LOCAL MODE
-           ENTITY OrderTP
+           ENTITY ordertp
            UPDATE FROM lt_order_update.
   ENDMETHOD.
 
   METHOD calctotalamount_in.
     DATA lt_order_update     TYPE TABLE FOR UPDATE zpru_u_purcorderhdr_tp\\ordertp.
-    DATA lv_new_total_amount TYPE zpru_u_purcorderhdr_tp-TotalAmount.
+    DATA lv_new_total_amount TYPE zpru_u_purcorderhdr_tp-totalamount.
 
     IF keys IS INITIAL.
       APPEND INITIAL LINE TO reported-%other ASSIGNING FIELD-SYMBOL(<lo_reported>).
@@ -558,8 +582,8 @@ CLASS lcl_det_val_manager IMPLEMENTATION.
       IF <ls_instance>-totalamount <> lv_new_total_amount.
         APPEND INITIAL LINE TO lt_order_update ASSIGNING FIELD-SYMBOL(<ls_order_update>).
         <ls_order_update>-%tky        = <ls_instance>-%tky.
-        <ls_order_update>-TotalAmount = lv_new_total_amount.
-        <ls_order_update>-%control-TotalAmount = if_abap_behv=>mk-on.
+        <ls_order_update>-totalamount = lv_new_total_amount.
+        <ls_order_update>-%control-totalamount = if_abap_behv=>mk-on.
       ENDIF.
 
     ENDLOOP.
@@ -618,7 +642,7 @@ CLASS lcl_det_val_manager IMPLEMENTATION.
       <ls_order_reported>-%tky        = <ls_instance>-%tky.
       <ls_order_reported>-%state_area = lif_business_object=>cs_state_area-order-checkdates.
 
-      IF <ls_instance>-OrderDate > <ls_instance>-DeliveryDate.
+      IF <ls_instance>-orderdate > <ls_instance>-deliverydate.
         APPEND INITIAL LINE TO failed-ordertp ASSIGNING <ls_failed>.
         <ls_failed>-%tky = <ls_instance>-%tky.
 
@@ -786,7 +810,7 @@ CLASS lhc_ordertp IMPLEMENTATION.
         APPEND INITIAL LINE TO result ASSIGNING FIELD-SYMBOL(<ls_result>).
         <ls_result>-%is_draft       = <ls_key>-%is_draft.
         <ls_result>-purchaseorderid = <ls_key>-purchaseorderid.
-        <ls_result>-%features-%field-PaymentTerms = if_abap_behv=>fc-f-read_only.
+        <ls_result>-%features-%field-paymentterms = if_abap_behv=>fc-f-read_only.
         <ls_result>-%features-%delete             = if_abap_behv=>fc-o-disabled.
       ENDIF.
     ENDLOOP.
@@ -869,23 +893,28 @@ CLASS lhc_ordertp IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD create.
+
+    " fetch data from buffer
     lcl_buffer=>prep_root_buffer( CORRESPONDING #( entities MAPPING is_draft = %is_draft
                                                                     purchaseorderid = purchaseorderid ) ).
 
     LOOP AT entities ASSIGNING FIELD-SYMBOL(<ls_create>).
 
+      " check if entry does not exist or marked as deleted
       IF    NOT line_exists( lcl_buffer=>root_buffer[ instance-purchaseorderid = <ls_create>-purchaseorderid
                                                       is_draft                 = <ls_create>-%is_draft ] )
          OR     line_exists( lcl_buffer=>root_buffer[ instance-purchaseorderid = <ls_create>-purchaseorderid
                                                       is_draft                 = <ls_create>-%is_draft
                                                       deleted                  = abap_true ] ).
 
+        " delete the one marked as deleted
         DELETE lcl_buffer=>root_buffer WHERE     instance-purchaseorderid = VALUE #( lcl_buffer=>root_buffer[
                                                                                          instance-purchaseorderid = <ls_create>-purchaseorderid
                                                                                          is_draft                 = <ls_create>-%is_draft ]-instance-purchaseorderid OPTIONAL )
                                              AND is_draft                 = <ls_create>-%is_draft
                                              AND deleted                  = abap_true.
 
+        " add value to buffer considering %control structure
         APPEND VALUE #(
             cid                       = <ls_create>-%cid
             is_draft                  = <ls_create>-%is_draft
@@ -997,15 +1026,19 @@ CLASS lhc_ordertp IMPLEMENTATION.
     DATA lt_determinenames_d TYPE lif_business_object=>tt_determinenames_d.
     DATA ls_late_reported    TYPE lif_business_object=>ts_reported_late.
 
+    " fetch data from buffer
     lcl_buffer=>prep_root_buffer( CORRESPONDING #( entities MAPPING purchaseorderid = purchaseorderid
                                                                     is_draft        = %is_draft ) ).
 
     LOOP AT entities ASSIGNING FIELD-SYMBOL(<ls_update>).
 
+      " check if data exist in buffer and ignore deleted entry
       ASSIGN lcl_buffer=>root_buffer[ instance-purchaseorderid = <ls_update>-purchaseorderid
                                       is_draft                 = <ls_update>-%is_draft
                                       deleted                  = abap_false ] TO FIELD-SYMBOL(<ls_up>).
       IF sy-subrc = 0.
+
+        " change data using %control structure
         <ls_up>-instance-orderdate        = COND #( WHEN <ls_update>-%control-orderdate <> if_abap_behv=>mk-off
                                                     THEN <ls_update>-orderdate
                                                     ELSE <ls_up>-instance-orderdate ).
@@ -1091,6 +1124,7 @@ CLASS lhc_ordertp IMPLEMENTATION.
       ENDIF.
     ENDLOOP.
 
+    " invoke determination on modify
     IF lt_determinenames_d IS NOT INITIAL.
       NEW lcl_det_val_manager( )->determinenames_in( EXPORTING keys     = lt_determinenames_d
                                                      CHANGING  reported = ls_late_reported ).
@@ -1107,6 +1141,8 @@ CLASS lhc_ordertp IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD delete.
+
+    " fetch to buffer as roots as items --> cascade deletion
     lcl_buffer=>prep_root_buffer( CORRESPONDING #( keys MAPPING purchaseorderid = purchaseorderid
                                                                 is_draft        = %is_draft ) ).
 
@@ -1123,6 +1159,9 @@ CLASS lhc_ordertp IMPLEMENTATION.
         <ls_del>-newly_created = abap_false. " qqq for event on created order
 
         <ls_del>-changed       = abap_false.
+
+        " we only mark the entry to be deleted
+        " actual delete will be in save method
         <ls_del>-deleted       = abap_true.
         " qqq cascade delete
         LOOP AT lcl_buffer=>child_buffer ASSIGNING FIELD-SYMBOL(<ls_child_del>)
@@ -1150,15 +1189,18 @@ CLASS lhc_ordertp IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD read.
+    " get data to buffer
     lcl_buffer=>prep_root_buffer( CORRESPONDING #( keys MAPPING purchaseorderid = purchaseorderid
                                                                 is_draft        = %is_draft ) ).
 
     LOOP AT keys ASSIGNING FIELD-SYMBOL(<ls_read>) GROUP BY <ls_read>-%tky.
+
+      " check if entry exist in buffer
       ASSIGN lcl_buffer=>root_buffer[ instance-purchaseorderid = <ls_read>-purchaseorderid
                                       is_draft                 = <ls_read>-%is_draft
                                       deleted                  = abap_false ] TO FIELD-SYMBOL(<ls_r>).
       IF sy-subrc = 0.
-
+        " return data using %control structure
         APPEND VALUE #( %tky             = <ls_read>-%tky
                         orderdate        = COND #( WHEN <ls_read>-%control-orderdate <> if_abap_behv=>mk-off
                                                    THEN <ls_r>-instance-orderdate )
@@ -1216,12 +1258,14 @@ CLASS lhc_ordertp IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD rba_items_tp.
+    " get to buffer roots and children
     lcl_buffer=>prep_root_buffer( CORRESPONDING #( keys_rba MAPPING purchaseorderid = purchaseorderid
                                                                     is_draft        = %is_draft ) ).
     lcl_buffer=>prep_child_buffer( CORRESPONDING #( keys_rba MAPPING purchaseorderid = purchaseorderid
                                                                     is_draft        = %is_draft ) ).
 
     LOOP AT keys_rba ASSIGNING FIELD-SYMBOL(<ls_rba>) GROUP BY <ls_rba>-%tky.
+      " check existence and ignore marked as deleted
       IF     line_exists( lcl_buffer=>root_buffer[ instance-purchaseorderid = <ls_rba>-purchaseorderid
                                                    is_draft                 = <ls_rba>-%is_draft
                                                    deleted                  = abap_false ] )
@@ -1240,6 +1284,7 @@ CLASS lhc_ordertp IMPLEMENTATION.
             CONTINUE.
           ENDIF.
 
+          " return using %control
           APPEND VALUE #( %tky              = CORRESPONDING #( <ls_rba>-%tky )
                           itemid            = <ls_ch>-instance-itemid
                           itemnumber        = COND #( WHEN <ls_rba>-%control-itemnumber <> if_abap_behv=>mk-off
@@ -1300,17 +1345,22 @@ CLASS lhc_ordertp IMPLEMENTATION.
     DATA lt_calculatetotalprice_d TYPE lif_business_object=>tt_calculatetotalprice_d.
     DATA ls_reported_late         TYPE lif_business_object=>ts_reported_late.
 
+    " get root and items to buffer
     lcl_buffer=>prep_root_buffer( CORRESPONDING #( entities_cba MAPPING purchaseorderid = purchaseorderid
                                                                         is_draft        = %is_draft ) ).
     lcl_buffer=>prep_child_buffer( CORRESPONDING #( entities_cba MAPPING purchaseorderid = purchaseorderid
                                                                         is_draft        = %is_draft ) ).
+
     LOOP AT entities_cba ASSIGNING FIELD-SYMBOL(<ls_cba>) GROUP BY <ls_cba>-%tky.
+      " check if root exist and not marked as deleted
       IF line_exists( lcl_buffer=>root_buffer[ instance-purchaseorderid = <ls_cba>-purchaseorderid
                                                is_draft                 = <ls_cba>-%is_draft
                                                deleted                  = abap_false ] ).
 
+        " process items per root
         LOOP AT <ls_cba>-%target ASSIGNING FIELD-SYMBOL(<ls_ch>).
 
+          " check if item does not exist or marked as deleted
           IF     (    NOT line_exists( lcl_buffer=>child_buffer[ instance-purchaseorderid = <ls_cba>-purchaseorderid
                                                                  is_draft                 = <ls_cba>-%is_draft
                                                                  instance-itemid          = <ls_ch>-itemid ] )
@@ -1322,6 +1372,8 @@ CLASS lhc_ordertp IMPLEMENTATION.
 
              AND <ls_ch>-itemid IS NOT INITIAL.
 
+            " delete from buffer previously marked as deleted entries
+            " we will input new entry into buffer
             ASSIGN lcl_buffer=>child_buffer[ instance-purchaseorderid = <ls_cba>-purchaseorderid
                                              is_draft                 = <ls_cba>-%is_draft
                                              instance-itemid          = <ls_ch>-itemid
@@ -1334,6 +1386,7 @@ CLASS lhc_ordertp IMPLEMENTATION.
                            AND deleted                  = abap_true.
             ENDIF.
 
+            " using %control flags
             APPEND VALUE #(
                 cid_ref                    = <ls_cba>-%cid_ref
                 cid_target                 = <ls_ch>-%cid
@@ -1370,6 +1423,7 @@ CLASS lhc_ordertp IMPLEMENTATION.
                                                      THEN <ls_ch>-changedon )
                 changed                    = abap_true ) TO lcl_buffer=>child_buffer.
 
+            " to update last changed field in root when we add item
             APPEND INITIAL LINE TO lt_root_update ASSIGNING FIELD-SYMBOL(<ls_root_update>).
             <ls_root_update>-purchaseorderid = <ls_cba>-purchaseorderid.
             <ls_root_update>-%is_draft       = <ls_cba>-%is_draft.
@@ -1379,6 +1433,7 @@ CLASS lhc_ordertp IMPLEMENTATION.
                             %key      = VALUE #( purchaseorderid = <ls_cba>-purchaseorderid
                                                  itemid          = <ls_ch>-itemid ) ) INTO TABLE mapped-itemtp.
 
+            " collect trigger for determination for modify
             APPEND INITIAL LINE TO lt_calculatetotalprice_d ASSIGNING FIELD-SYMBOL(<ls_calculatetotalprice_d>).
             <ls_calculatetotalprice_d>-purchaseorderid = <ls_cba>-purchaseorderid.
             <ls_calculatetotalprice_d>-itemid          = <ls_ch>-itemid.
@@ -1554,7 +1609,7 @@ CLASS lhc_ordertp IMPLEMENTATION.
         APPEND INITIAL LINE TO failed-ordertp ASSIGNING FIELD-SYMBOL(<ls_failed>).
         <ls_failed>-%tky = <ls_instance>-%tky.
         <ls_failed>-%fail-cause = if_abap_behv=>cause-not_found.
-        <ls_failed>-%action-ChangeStatus = if_abap_behv=>mk-on.
+        <ls_failed>-%action-changestatus = if_abap_behv=>mk-on.
         CONTINUE.
       ENDIF.
 
@@ -1678,7 +1733,7 @@ CLASS lhc_ordertp IMPLEMENTATION.
                                                         CHANGING  reported = reported ).
   ENDMETHOD.
 
-  METHOD fillOrigin.
+  METHOD fillorigin.
     NEW lcl_det_val_manager( )->fillorigin_in( EXPORTING keys     = keys
                                                CHANGING  reported = reported ).
   ENDMETHOD.
@@ -1804,6 +1859,7 @@ CLASS lhc_itemtp IMPLEMENTATION.
     DATA lt_calculatetotalprice_d TYPE lif_business_object=>tt_calculatetotalprice_d.
     DATA ls_reported_late         TYPE lif_business_object=>ts_reported_late.
 
+    " get to buffer
     lcl_buffer=>prep_child_buffer( VALUE #( FOR <ls_k>
                                             IN entities
                                             ( purchaseorderid = <ls_k>-purchaseorderid
@@ -1813,12 +1869,14 @@ CLASS lhc_itemtp IMPLEMENTATION.
 
     LOOP AT entities ASSIGNING FIELD-SYMBOL(<ls_update>).
 
+      " check entry exists
       ASSIGN lcl_buffer=>child_buffer[ instance-purchaseorderid = <ls_update>-purchaseorderid
                                        instance-itemid          = <ls_update>-itemid
                                        is_draft                 = <ls_update>-%is_draft
                                        deleted                  = abap_false ] TO FIELD-SYMBOL(<ls_up>).
 
       IF sy-subrc = 0.
+        " using %control
         <ls_up>-instance-itemnumber        = COND #( WHEN <ls_update>-%control-itemnumber <> if_abap_behv=>mk-off
                                                      THEN <ls_update>-itemnumber
                                                      ELSE <ls_up>-instance-itemnumber ).
@@ -2216,6 +2274,7 @@ CLASS lsc_zpru_u_purcorderhdr_tp IMPLEMENTATION.
             et_checkquantity_v,
             et_checkitemcurrency_v.
 
+    " process only active instances
     IF NOT line_exists( lcl_buffer=>root_buffer[ is_draft = if_abap_behv=>mk-off ] ).
       RETURN.
     ENDIF.
@@ -2234,6 +2293,7 @@ CLASS lsc_zpru_u_purcorderhdr_tp IMPLEMENTATION.
       ENDLOOP.
     ENDLOOP.
 
+    " get data from database to compare with buffer
     IF lt_active_roots IS NOT INITIAL.
       SELECT * FROM zpru_purcorderhdr AS order
         FOR ALL ENTRIES IN @lt_active_roots
@@ -2256,7 +2316,7 @@ CLASS lsc_zpru_u_purcorderhdr_tp IMPLEMENTATION.
 
     LOOP AT lt_active_roots ASSIGNING <ls_active_roots>.
 
-      " CREATE
+      " calculate CREATE trigger
       IF     NOT line_exists( lt_order_db_state[ purchaseorderid = <ls_active_roots>-instance-purchaseorderid ] )
          AND     <ls_active_roots>-deleted = abap_false.
         APPEND INITIAL LINE TO lt_setcontroltimestamp_d ASSIGNING FIELD-SYMBOL(<ls_setcontroltimestamp_d>).
@@ -2292,7 +2352,7 @@ CLASS lsc_zpru_u_purcorderhdr_tp IMPLEMENTATION.
         CONTINUE.
       ENDIF.
 
-      " UPDATE
+      " calculate UPDATE trigger
       LOOP AT lt_root_fields ASSIGNING FIELD-SYMBOL(<lv_root_fields>).
 
         ASSIGN COMPONENT <lv_root_fields>-name OF STRUCTURE <ls_active_roots>-instance TO FIELD-SYMBOL(<lv_buffer_value>).
