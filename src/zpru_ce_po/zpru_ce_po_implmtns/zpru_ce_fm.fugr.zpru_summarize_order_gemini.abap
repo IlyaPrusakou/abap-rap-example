@@ -119,7 +119,7 @@ FUNCTION zpru_summarize_order_gemini.
   lo_http_client->request->set_header_field( name  = 'Content-Type'
                                              value = 'application/json' ).
   lo_http_client->request->set_header_field( name  = 'X-goog-api-key'
-                                             value = 'API_KEY' ). " qqq replace with your key
+                                             value = 'MY API KEY' ). " qqq replace with your key
 
   lv_prompt = |Summarize purchase orders from #TEXT, showing ID, order date, supplier,| &&
               | buyer, total amount, currency, delivery date, status, payment terms,| &&

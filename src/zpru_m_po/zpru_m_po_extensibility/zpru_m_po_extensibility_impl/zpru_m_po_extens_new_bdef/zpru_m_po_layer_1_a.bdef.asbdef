@@ -2,8 +2,14 @@ extension using interface zpru_purcorderhdr_odata_int
 implementation in class zbp_pru_m_po_layer_1_a unique;
 
 
-extend behavior for OrderInt {
+extend behavior for OrderInt
+{
 
-action (authorization: global, authorization: instance) layer_1_a;
+  extend draft determine action Prepare
+  {
+    validation ( always ) Extension;
+  }
 
+  action ( authorization : global, authorization : instance ) layer_1_a;
+  validation Extension on save { create; update; }
 }

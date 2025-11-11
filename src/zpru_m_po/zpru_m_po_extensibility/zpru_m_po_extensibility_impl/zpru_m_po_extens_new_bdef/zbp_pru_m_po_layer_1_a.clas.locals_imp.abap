@@ -9,6 +9,8 @@ CLASS lhc_orderint DEFINITION INHERITING FROM cl_abap_behavior_handler.
 
     METHODS layer_1_a FOR MODIFY
       IMPORTING keys FOR ACTION orderint~layer_1_a.
+    METHODS extension FOR VALIDATE ON SAVE
+      IMPORTING keys FOR orderint~extension.
 
 ENDCLASS.
 
@@ -28,6 +30,9 @@ CLASS lhc_orderint IMPLEMENTATION.
     ALL FIELDS WITH CORRESPONDING #( keys )
     RESULT DATA(lt_result).
 
+  ENDMETHOD.
+
+  METHOD Extension.
   ENDMETHOD.
 
 ENDCLASS.
