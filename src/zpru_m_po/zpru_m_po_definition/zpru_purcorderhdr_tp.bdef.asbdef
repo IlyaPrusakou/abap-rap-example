@@ -23,6 +23,13 @@ late numbering
 changedocuments master ( ZPRU_PURC_ORDER )
 {
 
+// FIELD CONTROL FOR ODATA V2
+//  field ( readonly : update ) PurchaseOrderId;
+//  field ( readonly ) TotalAmount;
+//  field ( mandatory ) SupplierId, DeliveryDate, BuyerId;
+//  field ( features : instance ) paymentTerms;
+
+// FIELD CONTROL FOR ODATA V4
   field ( readonly : update ) purchaseOrderId, headerCurrency;
   field ( mandatory ) supplierId, deliveryDate, buyerId;
   field ( readonly ) status, buyerName, supplierName, totalAmount, origin;
@@ -139,6 +146,11 @@ extensible
 changedocuments dependent by _header_tp
 {
 
+// FIELD CONTROL FOR ODATA V2
+//  field ( readonly : update ) PurchaseOrderId, ItemId;
+//  field ( readonly ) TotalPrice, WarehouseLocation, ItemNumber;
+
+// FIELD CONTROL FOR ODATA V4
   field ( readonly ) totalPrice, warehouseLocation, itemNumber;
   field ( readonly : update ) purchaseOrderId, itemId, productId, itemCurrency, unitPrice;
   field ( mandatory : create ) productId, quantity, unitPrice;

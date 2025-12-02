@@ -1,13 +1,16 @@
 abstract;
 strict ( 2 );
 with hierarchy;
+extensible;
 
 define behavior for ZPRU_D_HistoryRoot alias History
+extensible
 {
   association records;
 }
 
 define behavior for Zpru_D_StatusHistoryRecord alias Record
+extensible
 {
   association header;
 }

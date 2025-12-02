@@ -16,18 +16,21 @@ define view entity zpru_i_shipping_method_t
       @ObjectModel.foreignKey.association: '_Language'
       @Semantics.language: true
   key cast( dd07t.ddlanguage as spras preserving type ) as Language,
+  
       @ObjectModel:{
         foreignKey.association: '_shippingMethod',
         text.element: ['Description'] }
   key cast( dd07t.domvalue_l as zpru_de_shipping_meth )     as shippingMethod,
+  
       @Consumption.hidden: true
-      dd07t.domvalue_l                                  as DomainValue,
+      dd07t.domvalue_l   as DomainValue,
+      
       @Search:{
         defaultSearchElement: true,
         fuzzinessThreshold: 0.8,
         ranking: #HIGH }
       @Semantics.text: true
-      dd07t.ddtext                                      as Description,
+      dd07t.ddtext       as Description,
       _shippingMethod,
       _Language
 }

@@ -633,7 +633,7 @@ CLASS lcl_det_val_manager IMPLEMENTATION.
       ASSIGN lt_roots[ KEY id COMPONENTS %tky = <ls_key>-%tky ] TO FIELD-SYMBOL(<ls_instance>).
       IF sy-subrc <> 0.
         APPEND INITIAL LINE TO failed-ordertp ASSIGNING FIELD-SYMBOL(<ls_failed>).
-        <ls_failed>-%tky = <ls_instance>-%tky.
+        <ls_failed>-%tky = <ls_key>-%tky.
         <ls_failed>-%fail-cause = if_abap_behv=>cause-not_found.
         CONTINUE.
       ENDIF.
@@ -801,7 +801,7 @@ CLASS lhc_ordertp IMPLEMENTATION.
       ASSIGN lt_roots[ KEY id COMPONENTS %tky = <ls_key>-%tky ] TO FIELD-SYMBOL(<ls_instance>).
       IF sy-subrc <> 0.
         APPEND INITIAL LINE TO failed-ordertp ASSIGNING FIELD-SYMBOL(<ls_failed>).
-        <ls_failed>-%tky = <ls_instance>-%tky.
+        <ls_failed>-%tky = <ls_key>-%tky.
         <ls_failed>-%fail-cause = if_abap_behv=>cause-not_found.
         CONTINUE.
       ENDIF.
@@ -849,7 +849,7 @@ CLASS lhc_ordertp IMPLEMENTATION.
       ASSIGN lt_roots[ KEY id COMPONENTS %tky = <ls_key>-%tky ] TO FIELD-SYMBOL(<ls_instance>).
       IF sy-subrc <> 0.
         APPEND INITIAL LINE TO failed-ordertp ASSIGNING FIELD-SYMBOL(<ls_failed>).
-        <ls_failed>-%tky = <ls_instance>-%tky.
+        <ls_failed>-%tky = <ls_key>-%tky.
         <ls_failed>-%fail-cause = if_abap_behv=>cause-not_found.
         CONTINUE.
       ENDIF.
@@ -1607,7 +1607,7 @@ CLASS lhc_ordertp IMPLEMENTATION.
       ASSIGN lt_roots[ KEY id COMPONENTS %tky = <ls_key>-%tky ] TO FIELD-SYMBOL(<ls_instance>).
       IF sy-subrc <> 0.
         APPEND INITIAL LINE TO failed-ordertp ASSIGNING FIELD-SYMBOL(<ls_failed>).
-        <ls_failed>-%tky = <ls_instance>-%tky.
+        <ls_failed>-%tky = <ls_key>-%tky.
         <ls_failed>-%fail-cause = if_abap_behv=>cause-not_found.
         <ls_failed>-%action-changestatus = if_abap_behv=>mk-on.
         CONTINUE.
